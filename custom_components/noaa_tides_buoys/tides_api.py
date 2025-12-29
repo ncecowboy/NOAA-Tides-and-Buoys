@@ -86,8 +86,10 @@ class TidesApiClient:
             try:
                 await self.get_data(station_id, product)
                 return True
-            except Exception:
-                # Continue to next product
+            except Exception:  # pylint: disable=broad-except
+                # Intentionally catch all exceptions (ValueError, ClientError, timeouts, etc.)
+                # Any failure means this product isn't available, so try the next one.
+                # Station is only invalid if ALL products fail.
                 continue
         
         # Station is invalid if none of the products work
@@ -111,8 +113,9 @@ class TidesApiClient:
                 # Extract station name from metadata
                 if "metadata" in data and "name" in data["metadata"]:
                     return data["metadata"]["name"]
-            except Exception:
-                # Continue to next product
+            except Exception:  # pylint: disable=broad-except
+                # Intentionally catch all exceptions (ValueError, ClientError, timeouts, etc.)
+                # Any failure means this product isn't available, so try the next one.
                 continue
         
         _LOGGER.debug("Could not fetch station name for %s", station_id)
