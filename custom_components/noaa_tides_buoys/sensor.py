@@ -208,19 +208,30 @@ class NOAABuoySensor(CoordinatorEntity, SensorEntity):
             model=entry.data[CONF_DATA_SOURCE].replace("_", " ").title(),
         )
 
+    def _get_primary_measurement_key(self) -> str | None:
+        """Get the key for the primary measurement based on available data."""
+        if not self.coordinator.data:
+            return None
+        
+        data = self.coordinator.data
+        
+        # For standard meteorological data, prioritize wave height, then wind speed
+        if "WVHT" in data:
+            return "WVHT"
+        elif "WSPD" in data:
+            return "WSPD"
+        
+        return None
+
     @property
     def native_value(self) -> Any:
         """Return the state of the sensor."""
         if not self.coordinator.data:
             return None
         
-        data = self.coordinator.data
-        
-        # For standard meteorological data, return wave height as primary value
-        if "WVHT" in data:
-            return data["WVHT"]
-        elif "WSPD" in data:
-            return data["WSPD"]
+        key = self._get_primary_measurement_key()
+        if key:
+            return self.coordinator.data[key]
         
         return None
 
@@ -230,16 +241,10 @@ class NOAABuoySensor(CoordinatorEntity, SensorEntity):
         if not self.coordinator.data:
             return None
         
-        data = self.coordinator.data
-        
-        # Get unit from API response
-        if "_units" in data:
-            units = data["_units"]
-            # Return unit for the primary measurement
-            if "WVHT" in data and "WVHT" in units:
-                return units["WVHT"]
-            elif "WSPD" in data and "WSPD" in units:
-                return units["WSPD"]
+        key = self._get_primary_measurement_key()
+        if key and "_units" in self.coordinator.data:
+            units = self.coordinator.data["_units"]
+            return units.get(key)
         
         return None
 
