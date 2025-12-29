@@ -21,6 +21,7 @@ from .const import (
     CONF_DATA_TYPE,
     DATA_SOURCE_TIDES,
     TIDES_PRODUCTS,
+    TIDES_UNITS,
     BUOY_DATA_TYPES,
 )
 from .coordinator import NOAADataUpdateCoordinator
@@ -137,6 +138,11 @@ class NOAATidesSensor(CoordinatorEntity, SensorEntity):
         return None
 
     @property
+    def native_unit_of_measurement(self) -> str | None:
+        """Return the unit of measurement."""
+        return TIDES_UNITS.get(self._data_key)
+
+    @property
     def extra_state_attributes(self) -> dict[str, Any]:
         """Return additional attributes."""
         if not self.coordinator.data:
@@ -215,6 +221,25 @@ class NOAABuoySensor(CoordinatorEntity, SensorEntity):
             return data["WVHT"]
         elif "WSPD" in data:
             return data["WSPD"]
+        
+        return None
+
+    @property
+    def native_unit_of_measurement(self) -> str | None:
+        """Return the unit of measurement."""
+        if not self.coordinator.data:
+            return None
+        
+        data = self.coordinator.data
+        
+        # Get unit from API response
+        if "_units" in data:
+            units = data["_units"]
+            # Return unit for the primary measurement
+            if "WVHT" in data and "WVHT" in units:
+                return units["WVHT"]
+            elif "WSPD" in data and "WSPD" in units:
+                return units["WSPD"]
         
         return None
 
