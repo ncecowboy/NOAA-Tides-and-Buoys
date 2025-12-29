@@ -1,5 +1,4 @@
 """API client for NOAA Tides and Currents data."""
-import asyncio
 import logging
 from datetime import datetime
 from typing import Any
@@ -87,8 +86,8 @@ class TidesApiClient:
             try:
                 await self.get_data(station_id, product)
                 return True
-            except (ValueError, aiohttp.ClientError, asyncio.TimeoutError):
-                # Product not available or network issue - try the next product.
+            except (ValueError, aiohttp.ClientError):
+                # Product not available or network/timeout issue - try the next product.
                 # Station is only invalid if ALL products fail.
                 continue
         
@@ -113,8 +112,8 @@ class TidesApiClient:
                 # Extract station name from metadata
                 if "metadata" in data and "name" in data["metadata"]:
                     return data["metadata"]["name"]
-            except (ValueError, aiohttp.ClientError, asyncio.TimeoutError):
-                # Product not available or network issue - try the next product.
+            except (ValueError, aiohttp.ClientError):
+                # Product not available or network/timeout issue - try the next product.
                 continue
         
         _LOGGER.debug("Could not fetch station name for %s", station_id)
