@@ -1,0 +1,28 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "NOAA Tides and Buoys Setup",
+        "description": "Configure your NOAA data source",
+        "data": {
+          "data_source": "Data Source",
+          "station_id": "Station ID",
+          "data_type": "Data Type"
+        },
+        "data_description": {
+          "data_source": "Select Tides/Currents or Buoy data",
+          "station_id": "Enter the NOAA station ID (e.g., 9414290 for tides, 41002 for buoys)",
+          "data_type": "Select the type of data to retrieve"
+        }
+      }
+    },
+    "error": {
+      "invalid_station": "Invalid station ID. Please check and try again.",
+      "cannot_connect": "Failed to connect to NOAA servers. Please try again later.",
+      "unknown": "An unexpected error occurred. Please try again."
+    },
+    "abort": {
+      "already_configured": "This station is already configured."
+    }
+  }
+}
