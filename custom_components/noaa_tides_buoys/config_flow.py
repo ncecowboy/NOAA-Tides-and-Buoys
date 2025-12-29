@@ -49,11 +49,11 @@ async def validate_input(hass: HomeAssistant, data: dict[str, Any]) -> dict[str,
     # Try to get station name
     station_name = await client.get_station_name(station_id)
     
-    # Create title with station name if available, otherwise use station ID
+    # Create title with source prefix and station name/ID
+    source_name = data_source.replace('_', ' ').title()
     if station_name:
-        title = station_name
+        title = f"NOAA {source_name} - {station_name}"
     else:
-        source_name = data_source.replace('_', ' ').title()
         title = f"NOAA {source_name} - {station_id}"
     
     return {"title": title}
