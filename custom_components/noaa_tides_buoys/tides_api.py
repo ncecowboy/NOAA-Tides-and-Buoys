@@ -110,12 +110,13 @@ class TidesApiClient:
                 # Fetch data to get metadata which includes station name
                 data = await self.get_data(station_id, product)
                 
-                # Extract station name from metadata
+                # Extract station name from metadata if available
                 if "metadata" in data and "name" in data["metadata"]:
                     return data["metadata"]["name"]
+                # If metadata exists but has no name, try the next product
             except (ValueError, aiohttp.ClientError, asyncio.TimeoutError):
                 # Product not available, network issue, or timeout - try the next product.
-                continue
+                pass
         
         _LOGGER.debug("Could not fetch station name for %s", station_id)
         return None
