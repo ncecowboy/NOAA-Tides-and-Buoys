@@ -30,6 +30,14 @@ BUOY_DATA_TYPES = {
     "ocean": "Oceanographic Data",
 }
 
+# Buoy data type to file extension mapping
+BUOY_DATA_TYPE_MAP = {
+    "standard": "txt",
+    "cwind": "cwind",
+    "spec": "spec",
+    "ocean": "ocean",
+}
+
 # API endpoints
 TIDES_API_BASE = "https://api.tidesandcurrents.noaa.gov/api/prod/datagetter"
 BUOY_API_BASE = "https://www.ndbc.noaa.gov/data/realtime2"
