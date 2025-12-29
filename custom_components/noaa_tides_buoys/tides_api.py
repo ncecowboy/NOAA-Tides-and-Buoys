@@ -72,30 +72,50 @@ class TidesApiClient:
             raise
 
     async def validate_station(self, station_id: str) -> bool:
-        """Validate that a station ID exists."""
-        try:
-            # Try to fetch latest water level data as a test
-            await self.get_data(station_id, "water_level")
-            return True
-        except Exception:
-            return False
+        """Validate that a station ID exists.
+        
+        Tries multiple products to validate the station, as not all stations
+        support all products. Predictions are tried first as they are more
+        commonly available than real-time water level measurements.
+        """
+        # List of products to try for validation, in order of preference
+        products_to_try = ["predictions", "water_level"]
+        
+        for product in products_to_try:
+            try:
+                await self.get_data(station_id, product)
+                return True
+            except Exception:
+                # Continue to next product
+                continue
+        
+        # Station is invalid if none of the products work
+        return False
 
     async def get_station_name(self, station_id: str) -> str | None:
         """Get the name of the station.
+        
+        Tries multiple products to get station metadata. Predictions are tried
+        first as they are more commonly available than real-time measurements.
         
         Note: This fetches data from the API to extract metadata.
         When called after validate_station(), this results in a duplicate API call.
         Future optimization: Consider caching or combining validation with name retrieval.
         """
-        try:
-            # Fetch data to get metadata which includes station name
-            data = await self.get_data(station_id, "water_level")
-            
-            # Extract station name from metadata
-            if "metadata" in data and "name" in data["metadata"]:
-                return data["metadata"]["name"]
-            
-            return None
-        except Exception:
-            _LOGGER.debug("Could not fetch station name for %s", station_id)
-            return None
+        # List of products to try, in order of preference
+        products_to_try = ["predictions", "water_level"]
+        
+        for product in products_to_try:
+            try:
+                # Fetch data to get metadata which includes station name
+                data = await self.get_data(station_id, product)
+                
+                # Extract station name from metadata
+                if "metadata" in data and "name" in data["metadata"]:
+                    return data["metadata"]["name"]
+            except Exception:
+                # Continue to next product
+                continue
+        
+        _LOGGER.debug("Could not fetch station name for %s", station_id)
+        return None
