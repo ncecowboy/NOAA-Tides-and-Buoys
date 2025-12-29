@@ -46,8 +46,8 @@ This custom integration for Home Assistant provides real-time data from NOAA (Na
    - **Tides and Currents** - For water level and weather data from coastal stations
    - **Buoy Data** - For oceanographic data from offshore buoys
 5. Enter your station ID:
-   - For Tides/Currents: 7-digit station ID (e.g., `9414290` for San Francisco)
-   - For Buoys: Station ID (e.g., `41002` for South Hatteras)
+   - For Tides/Currents: 7-digit station ID (e.g., `9439040` for Bellingham, WA)
+   - For Buoys: Station ID (e.g., `46029` for Columbia River Bar)
 6. Select the data type you want to monitor
 7. Click **Submit**
 

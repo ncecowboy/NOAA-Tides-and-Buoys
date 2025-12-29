@@ -44,3 +44,6 @@ htmlcov/
 # Temporary files
 /tmp/
 *.tmp
+
+# Test files
+test_apis.py

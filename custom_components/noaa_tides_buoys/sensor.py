@@ -12,6 +12,7 @@ from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
+from homeassistant.helpers.entity import DeviceInfo
 
 from .const import (
     DOMAIN,
@@ -103,6 +104,15 @@ class NOAATidesSensor(CoordinatorEntity, SensorEntity):
         self._attr_name = f"NOAA {entry.data[CONF_STATION_ID]} {name}"
         self._attr_unique_id = f"{entry.entry_id}_{data_key}"
         self._station_id = entry.data[CONF_STATION_ID]
+        self._entry_id = entry.entry_id
+        
+        # Set device info
+        self._attr_device_info = DeviceInfo(
+            identifiers={(DOMAIN, f"{entry.data[CONF_DATA_SOURCE]}_{self._station_id}")},
+            name=f"NOAA Station {self._station_id}",
+            manufacturer="NOAA",
+            model=entry.data[CONF_DATA_SOURCE].replace("_", " ").title(),
+        )
 
     @property
     def native_value(self) -> Any:
@@ -182,6 +192,15 @@ class NOAABuoySensor(CoordinatorEntity, SensorEntity):
         self._attr_name = f"NOAA Buoy {entry.data[CONF_STATION_ID]} {name}"
         self._attr_unique_id = f"{entry.entry_id}_{data_key}"
         self._station_id = entry.data[CONF_STATION_ID]
+        self._entry_id = entry.entry_id
+        
+        # Set device info
+        self._attr_device_info = DeviceInfo(
+            identifiers={(DOMAIN, f"{entry.data[CONF_DATA_SOURCE]}_{self._station_id}")},
+            name=f"NOAA Buoy {self._station_id}",
+            manufacturer="NOAA",
+            model=entry.data[CONF_DATA_SOURCE].replace("_", " ").title(),
+        )
 
     @property
     def native_value(self) -> Any:

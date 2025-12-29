@@ -53,30 +53,21 @@ class NOAAConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
 
     VERSION = 1
 
+    def __init__(self):
+        """Initialize the config flow."""
+        self._data = {}
+
     async def async_step_user(
         self, user_input: dict[str, Any] | None = None
     ) -> FlowResult:
-        """Handle the initial step."""
+        """Handle the initial step - select data source."""
         errors: dict[str, str] = {}
         
         if user_input is not None:
-            # Check if this station is already configured
-            await self.async_set_unique_id(
-                f"{user_input[CONF_DATA_SOURCE]}_{user_input[CONF_STATION_ID]}"
-            )
-            self._abort_if_unique_id_configured()
-            
-            try:
-                info = await validate_input(self.hass, user_input)
-            except ValueError:
-                errors["base"] = "invalid_station"
-            except Exception:  # pylint: disable=broad-except
-                _LOGGER.exception("Unexpected exception")
-                errors["base"] = "unknown"
-            else:
-                return self.async_create_entry(title=info["title"], data=user_input)
+            self._data = user_input
+            return await self.async_step_station()
 
-        # Build the schema with dynamic data type options
+        # Select data source
         data_schema = vol.Schema(
             {
                 vol.Required(CONF_DATA_SOURCE): vol.In(
@@ -85,13 +76,71 @@ class NOAAConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                         DATA_SOURCE_BUOY: "Buoy Data",
                     }
                 ),
-                vol.Required(CONF_STATION_ID): str,
-                vol.Required(CONF_DATA_TYPE): vol.In(
-                    {**TIDES_PRODUCTS, **BUOY_DATA_TYPES}
-                ),
             }
         )
 
         return self.async_show_form(
             step_id="user", data_schema=data_schema, errors=errors
+        )
+
+    async def async_step_station(
+        self, user_input: dict[str, Any] | None = None
+    ) -> FlowResult:
+        """Handle station selection step."""
+        errors: dict[str, str] = {}
+        
+        if user_input is not None:
+            self._data.update(user_input)
+            return await self.async_step_data_type()
+
+        # Enter station ID
+        data_schema = vol.Schema(
+            {
+                vol.Required(CONF_STATION_ID): str,
+            }
+        )
+
+        return self.async_show_form(
+            step_id="station", data_schema=data_schema, errors=errors
+        )
+
+    async def async_step_data_type(
+        self, user_input: dict[str, Any] | None = None
+    ) -> FlowResult:
+        """Handle data type selection step."""
+        errors: dict[str, str] = {}
+        
+        if user_input is not None:
+            self._data.update(user_input)
+            
+            # Check if this station is already configured
+            await self.async_set_unique_id(
+                f"{self._data[CONF_DATA_SOURCE]}_{self._data[CONF_STATION_ID]}_{self._data[CONF_DATA_TYPE]}"
+            )
+            self._abort_if_unique_id_configured()
+            
+            try:
+                info = await validate_input(self.hass, self._data)
+            except ValueError:
+                errors["base"] = "invalid_station"
+            except Exception:  # pylint: disable=broad-except
+                _LOGGER.exception("Unexpected exception")
+                errors["base"] = "unknown"
+            else:
+                return self.async_create_entry(title=info["title"], data=self._data)
+
+        # Select appropriate data types based on data source
+        if self._data[CONF_DATA_SOURCE] == DATA_SOURCE_TIDES:
+            data_types = TIDES_PRODUCTS
+        else:
+            data_types = BUOY_DATA_TYPES
+
+        data_schema = vol.Schema(
+            {
+                vol.Required(CONF_DATA_TYPE): vol.In(data_types),
+            }
+        )
+
+        return self.async_show_form(
+            step_id="data_type", data_schema=data_schema, errors=errors
         )
