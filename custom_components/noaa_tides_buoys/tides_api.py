@@ -1,4 +1,5 @@
 """API client for NOAA Tides and Currents data."""
+import asyncio
 import logging
 from datetime import datetime
 from typing import Any
@@ -18,6 +19,10 @@ _LOGGER = logging.getLogger(__name__)
 
 class TidesApiClient:
     """API client for NOAA Tides and Currents."""
+    
+    # Products to try for validation, in order of preference.
+    # Predictions are more commonly available than real-time measurements.
+    _VALIDATION_PRODUCTS = ["predictions", "water_level"]
 
     def __init__(self, session: aiohttp.ClientSession):
         """Initialize the API client."""
@@ -72,30 +77,46 @@ class TidesApiClient:
             raise
 
     async def validate_station(self, station_id: str) -> bool:
-        """Validate that a station ID exists."""
-        try:
-            # Try to fetch latest water level data as a test
-            await self.get_data(station_id, "water_level")
-            return True
-        except Exception:
-            return False
+        """Validate that a station ID exists.
+        
+        Tries multiple products to validate the station, as not all stations
+        support all products. Predictions are tried first as they are more
+        commonly available than real-time water level measurements.
+        """
+        for product in self._VALIDATION_PRODUCTS:
+            try:
+                await self.get_data(station_id, product)
+                return True
+            except (ValueError, aiohttp.ClientError, asyncio.TimeoutError):
+                # Product not available, network issue, or timeout - try the next product.
+                # Station is only invalid if ALL products fail.
+                continue
+        
+        # Station is invalid if none of the products work
+        return False
 
     async def get_station_name(self, station_id: str) -> str | None:
         """Get the name of the station.
+        
+        Tries multiple products to get station metadata. Predictions are tried
+        first as they are more commonly available than real-time measurements.
         
         Note: This fetches data from the API to extract metadata.
         When called after validate_station(), this results in a duplicate API call.
         Future optimization: Consider caching or combining validation with name retrieval.
         """
-        try:
-            # Fetch data to get metadata which includes station name
-            data = await self.get_data(station_id, "water_level")
-            
-            # Extract station name from metadata
-            if "metadata" in data and "name" in data["metadata"]:
-                return data["metadata"]["name"]
-            
-            return None
-        except Exception:
-            _LOGGER.debug("Could not fetch station name for %s", station_id)
-            return None
+        for product in self._VALIDATION_PRODUCTS:
+            try:
+                # Fetch data to get metadata which includes station name
+                data = await self.get_data(station_id, product)
+                
+                # Extract station name from metadata if available
+                if "metadata" in data and "name" in data["metadata"]:
+                    return data["metadata"]["name"]
+                # If metadata exists but has no name, try the next product
+            except (ValueError, aiohttp.ClientError, asyncio.TimeoutError):
+                # Product not available, network issue, or timeout - try the next product.
+                pass
+        
+        _LOGGER.debug("Could not fetch station name for %s", station_id)
+        return None
