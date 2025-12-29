@@ -10,6 +10,10 @@ from .const import BUOY_API_BASE
 
 _LOGGER = logging.getLogger(__name__)
 
+# Regex patterns for parsing station names from HTML
+_STATION_H1_PATTERN = r'<h1[^>]*id="station"[^>]*>([^<]+)</h1>'
+_STATION_TITLE_PATTERN = r'<title>([^-]+)-'
+
 
 class BuoyApiClient:
     """API client for NOAA NDBC Buoy data."""
@@ -93,24 +97,23 @@ class BuoyApiClient:
                     
                     # Parse the station name from the HTML
                     # The station name is in the <h1> tag with id="station"
-                    match = re.search(r'<h1[^>]*id="station"[^>]*>([^<]+)</h1>', html)
+                    match = re.search(_STATION_H1_PATTERN, html)
                     if match:
-                        station_name = match.group(1).strip()
-                        # Remove "Station " prefix if present
-                        if station_name.startswith("Station "):
-                            station_name = station_name[8:]
-                        return station_name
+                        return self._clean_station_name(match.group(1))
                     
                     # Fallback: try to find station name in title tag
-                    match = re.search(r'<title>([^-]+)-', html)
+                    match = re.search(_STATION_TITLE_PATTERN, html)
                     if match:
-                        station_name = match.group(1).strip()
-                        # Remove "Station " prefix if present
-                        if station_name.startswith("Station "):
-                            station_name = station_name[8:]
-                        return station_name
+                        return self._clean_station_name(match.group(1))
                     
                     return None
         except Exception as err:
             _LOGGER.debug("Could not fetch station name for %s: %s", station_id, err)
             return None
+    
+    def _clean_station_name(self, name: str) -> str:
+        """Clean station name by removing common prefixes."""
+        name = name.strip()
+        if name.startswith("Station "):
+            name = name[8:]
+        return name
