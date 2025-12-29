@@ -24,6 +24,11 @@ jobs:
           VERSION=${GITHUB_REF#refs/tags/v}
           echo "version=$VERSION" >> $GITHUB_OUTPUT
       
+      - name: Checkout main branch
+        run: |
+          git fetch origin main
+          git checkout main
+      
       - name: Update manifest version
         run: |
           python3 -c "
