@@ -10,6 +10,12 @@ from .const import BUOY_API_BASE
 
 _LOGGER = logging.getLogger(__name__)
 
+# Regex patterns for parsing station names from HTML
+# Pattern matches: <h1 id="station">COLUMBIA RIVER BAR</h1>
+_STATION_H1_PATTERN = r'<h1[^>]*id="station"[^>]*>([^<]+)</h1>'
+# Pattern matches: <title>Station 46029 - COLUMBIA RIVER BAR - Recent Data</title>
+_STATION_TITLE_PATTERN = r'<title>([^-]+)-'
+
 
 class BuoyApiClient:
     """API client for NOAA NDBC Buoy data."""
@@ -81,10 +87,34 @@ class BuoyApiClient:
     async def get_station_name(self, station_id: str) -> str | None:
         """Get the name of the buoy station.
         
-        Note: NDBC data files don't include station names in the data.
-        This would require parsing the station's HTML page or using a separate
-        metadata source. For now, we return None and fall back to station ID.
+        Fetches the station name by parsing the NDBC station page HTML.
         """
-        # Future enhancement: Could fetch from station_page.php and parse HTML
-        # or use NDBC's stations XML file
-        return None
+        url = f"https://www.ndbc.noaa.gov/station_page.php?station={station_id}"
+        
+        try:
+            async with async_timeout.timeout(10):
+                async with self._session.get(url) as response:
+                    response.raise_for_status()
+                    html = await response.text()
+                    
+                    # Parse the station name from the HTML
+                    # The station name is in the <h1> tag with id="station"
+                    match = re.search(_STATION_H1_PATTERN, html)
+                    if match:
+                        return self._clean_station_name(match.group(1))
+                    
+                    # Fallback: try to find station name in title tag
+                    match = re.search(_STATION_TITLE_PATTERN, html)
+                    if match:
+                        return self._clean_station_name(match.group(1))
+                    
+                    return None
+        except Exception as err:
+            _LOGGER.debug("Could not fetch station name for %s: %s", station_id, err)
+            return None
+    
+    def _clean_station_name(self, name: str) -> str:
+        """Clean station name by removing common prefixes."""
+        name = name.strip()
+        name = name.removeprefix("Station ")
+        return name
