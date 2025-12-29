@@ -46,7 +46,7 @@ This custom integration for Home Assistant provides real-time data from NOAA (Na
    - **Tides and Currents** - For water level and weather data from coastal stations
    - **Buoy Data** - For oceanographic data from offshore buoys
 5. Enter your station ID:
-   - For Tides/Currents: 7-digit station ID (e.g., `9439040` for Bellingham, WA)
+   - For Tides/Currents: 7-digit station ID (e.g., `9439040` for Astoria, OR)
    - For Buoys: Station ID (e.g., `46029` for Columbia River Bar)
 6. Select the data type you want to monitor
 7. Click **Submit**
@@ -64,13 +64,30 @@ This custom integration for Home Assistant provides real-time data from NOAA (Na
 ## Available Data Products
 
 ### Tides and Currents
-- Water Level
-- Tide Predictions
+
+**Real-time and Preliminary Data:**
+- Water Level - Real-time or preliminary water level measurements
+- One Minute Water Level - High-frequency water level data (tsunami detection)
 - Air Temperature
 - Water Temperature
 - Wind
 - Air Pressure
 - Currents
+- Conductivity
+- Salinity
+- Humidity
+- Visibility
+- Air Gap - Distance between bridge and water surface
+
+**Predictions:**
+- Tide Predictions - Harmonic tide predictions
+- High/Low Tide Predictions - Predicted times and heights of high and low tides
+
+**Verified Historical Data:**
+- Hourly Height - Verified hourly water level data
+- High/Low Water Level - Verified observed high and low water levels
+- Daily Mean Water Level - Verified daily mean water levels
+- Monthly Mean Water Level - Verified monthly mean water levels
 
 ### Buoy Data
 - Standard Meteorological Data (wave height, wind speed, etc.)
