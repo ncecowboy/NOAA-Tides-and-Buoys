@@ -14,6 +14,7 @@ DATA_SOURCE_BUOY = "buoy"
 TIDES_PRODUCTS = {
     "water_level": "Water Level",
     "predictions": "Tide Predictions",
+    "predictions_hilo": "High/Low Tide Predictions",
     "air_temperature": "Air Temperature",
     "water_temperature": "Water Temperature",
     "wind": "Wind",
@@ -54,6 +55,7 @@ DEFAULT_RANGE = 24  # hours
 TIDES_UNITS = {
     "water_level": "ft",
     "predictions": "ft",
+    "predictions_hilo": "ft",
     "air_temperature": "°F",
     "water_temperature": "°F",
     "wind": "kts",

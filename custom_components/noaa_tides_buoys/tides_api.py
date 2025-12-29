@@ -31,6 +31,8 @@ class TidesApiClient:
         datum: str = DEFAULT_DATUM,
         units: str = DEFAULT_UNITS,
         time_zone: str = DEFAULT_TIME_ZONE,
+        interval: str | None = None,
+        range_hours: int | None = None,
     ) -> dict[str, Any]:
         """Get data from the Tides and Currents API."""
         params = {
@@ -43,6 +45,12 @@ class TidesApiClient:
             "format": "json",
             "application": "HomeAssistant",
         }
+        
+        # Add optional parameters if provided
+        if interval:
+            params["interval"] = interval
+        if range_hours:
+            params["range"] = range_hours
 
         try:
             async with async_timeout.timeout(10):
