@@ -2,6 +2,7 @@
 from datetime import timedelta
 import logging
 from typing import Any
+import asyncio
 
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, UpdateFailed
@@ -11,9 +12,11 @@ from .const import (
     DOMAIN,
     CONF_DATA_SOURCE,
     CONF_STATION_ID,
-    CONF_DATA_TYPE,
     DATA_SOURCE_TIDES,
     UPDATE_INTERVAL,
+    TIDES_PRODUCTS,
+    BUOY_DATA_TYPES,
+    BUOY_DATA_TYPE_MAP,
 )
 from .tides_api import TidesApiClient
 from .buoy_api import BuoyApiClient
@@ -32,7 +35,6 @@ class NOAADataUpdateCoordinator(DataUpdateCoordinator):
         """Initialize the coordinator."""
         self.data_source = config_entry_data[CONF_DATA_SOURCE]
         self.station_id = config_entry_data[CONF_STATION_ID]
-        self.data_type = config_entry_data[CONF_DATA_TYPE]
         
         session = async_get_clientsession(hass)
         
@@ -52,18 +54,32 @@ class NOAADataUpdateCoordinator(DataUpdateCoordinator):
         """Fetch data from API."""
         try:
             if self.data_source == DATA_SOURCE_TIDES:
-                data = await self.client.get_data(self.station_id, self.data_type)
+                # Fetch all available data types for tides in parallel
+                async def fetch_tide_data(data_type: str) -> tuple[str, Any]:
+                    try:
+                        data = await self.client.get_data(self.station_id, data_type)
+                        return (data_type, data)
+                    except Exception as err:
+                        _LOGGER.debug("Could not fetch %s for station %s: %s", data_type, self.station_id, err)
+                        return (data_type, None)
+                
+                results = await asyncio.gather(
+                    *[fetch_tide_data(data_type) for data_type in TIDES_PRODUCTS.keys()]
+                )
+                return dict(results)
             else:
-                # For buoy data, map data type to file extension
-                data_type_map = {
-                    "standard": "txt",
-                    "cwind": "cwind",
-                    "spec": "spec",
-                    "ocean": "ocean",
-                }
-                file_ext = data_type_map.get(self.data_type, "txt")
-                data = await self.client.get_data(self.station_id, file_ext)
-            
-            return data
+                # Fetch all available data types for buoys in parallel
+                async def fetch_buoy_data(data_type: str, file_ext: str) -> tuple[str, Any]:
+                    try:
+                        data = await self.client.get_data(self.station_id, file_ext)
+                        return (data_type, data)
+                    except Exception as err:
+                        _LOGGER.debug("Could not fetch %s for station %s: %s", data_type, self.station_id, err)
+                        return (data_type, None)
+                
+                results = await asyncio.gather(
+                    *[fetch_buoy_data(data_type, file_ext) for data_type, file_ext in BUOY_DATA_TYPE_MAP.items()]
+                )
+                return dict(results)
         except Exception as err:
             raise UpdateFailed(f"Error communicating with API: {err}") from err

@@ -13,22 +13,12 @@
       },
       "station": {
         "title": "Station Selection",
-        "description": "Enter the NOAA station ID",
+        "description": "Enter the NOAA station ID. All available sensors for this station will be created.",
         "data": {
           "station_id": "Station ID"
         },
         "data_description": {
           "station_id": "Enter the station ID (e.g., 9439040 for tides, 46029 for buoys)"
-        }
-      },
-      "data_type": {
-        "title": "Data Type Selection",
-        "description": "Select the type of data to retrieve",
-        "data": {
-          "data_type": "Data Type"
-        },
-        "data_description": {
-          "data_type": "Select the specific data product to monitor"
         }
       }
     },
@@ -38,7 +28,7 @@
       "unknown": "An unexpected error occurred. Please try again."
     },
     "abort": {
-      "already_configured": "This station and data type combination is already configured."
+      "already_configured": "This station is already configured."
     }
   }
 }
