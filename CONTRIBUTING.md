@@ -43,9 +43,12 @@ This project uses [Semantic Versioning](https://semver.org/):
 
 ## Release Process
 
-1. Update the version in `manifest.json`
-2. Create a new GitHub release with a tag (e.g., `v1.1.0`)
-3. The GitHub Actions workflow will automatically create a ZIP package
+1. Create and push a new version tag (e.g., `git tag v1.1.0 && git push --tags`)
+2. Create a new GitHub release with the tag
+3. The GitHub Actions workflow will automatically:
+   - Update the version in `manifest.json`
+   - Commit the version change back to the repository
+   - Create a ZIP package for distribution
 
 ## Adding New Features
 
