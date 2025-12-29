@@ -60,7 +60,7 @@ class NOAADataUpdateCoordinator(DataUpdateCoordinator):
                         data = await self.client.get_data(self.station_id, data_type)
                         return (data_type, data)
                     except Exception as err:
-                        _LOGGER.debug(f"Could not fetch {data_type} for station {self.station_id}: {err}")
+                        _LOGGER.debug("Could not fetch %s for station %s: %s", data_type, self.station_id, err)
                         return (data_type, None)
                 
                 results = await asyncio.gather(
@@ -74,7 +74,7 @@ class NOAADataUpdateCoordinator(DataUpdateCoordinator):
                         data = await self.client.get_data(self.station_id, file_ext)
                         return (data_type, data)
                     except Exception as err:
-                        _LOGGER.debug(f"Could not fetch {data_type} for station {self.station_id}: {err}")
+                        _LOGGER.debug("Could not fetch %s for station %s: %s", data_type, self.station_id, err)
                         return (data_type, None)
                 
                 results = await asyncio.gather(
