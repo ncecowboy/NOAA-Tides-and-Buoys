@@ -11,7 +11,9 @@ from .const import BUOY_API_BASE
 _LOGGER = logging.getLogger(__name__)
 
 # Regex patterns for parsing station names from HTML
+# Pattern matches: <h1 id="station">COLUMBIA RIVER BAR</h1>
 _STATION_H1_PATTERN = r'<h1[^>]*id="station"[^>]*>([^<]+)</h1>'
+# Pattern matches: <title>Station 46029 - COLUMBIA RIVER BAR - Recent Data</title>
 _STATION_TITLE_PATTERN = r'<title>([^-]+)-'
 
 
@@ -114,6 +116,5 @@ class BuoyApiClient:
     def _clean_station_name(self, name: str) -> str:
         """Clean station name by removing common prefixes."""
         name = name.strip()
-        if name.startswith("Station "):
-            name = name[8:]
+        name = name.removeprefix("Station ")
         return name
