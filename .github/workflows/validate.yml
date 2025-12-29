@@ -1,0 +1,40 @@
+name: Validate Integration
+
+on:
+  push:
+    branches: [ main, master ]
+  pull_request:
+    branches: [ main, master ]
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    name: Validate integration files
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.11'
+      
+      - name: Validate Python syntax
+        run: |
+          python -m py_compile custom_components/noaa_tides_buoys/*.py
+      
+      - name: Validate JSON files
+        run: |
+          python -c "import json; json.load(open('custom_components/noaa_tides_buoys/manifest.json'))"
+          python -c "import json; json.load(open('custom_components/noaa_tides_buoys/strings.json'))"
+          python -c "import json; json.load(open('hacs.json'))"
+      
+      - name: Check required files
+        run: |
+          test -f custom_components/noaa_tides_buoys/__init__.py
+          test -f custom_components/noaa_tides_buoys/manifest.json
+          test -f custom_components/noaa_tides_buoys/config_flow.py
+          test -f custom_components/noaa_tides_buoys/const.py
+          test -f custom_components/noaa_tides_buoys/strings.json
+          test -f hacs.json

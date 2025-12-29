@@ -1,0 +1,39 @@
+name: Release
+
+on:
+  release:
+    types: [published]
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    name: Create release package
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      - name: Get version from tag
+        id: version
+        run: |
+          VERSION=${GITHUB_REF#refs/tags/v}
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+      
+      - name: Update manifest version
+        run: |
+          python -c "import json; m = json.load(open('custom_components/noaa_tides_buoys/manifest.json')); m['version'] = '${{ steps.version.outputs.version }}'; json.dump(m, open('custom_components/noaa_tides_buoys/manifest.json', 'w'), indent=2)"
+      
+      - name: Create ZIP archive
+        run: |
+          cd custom_components
+          zip -r ../noaa_tides_buoys.zip noaa_tides_buoys/
+      
+      - name: Upload release asset
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ github.event.release.upload_url }}
+          asset_path: ./noaa_tides_buoys.zip
+          asset_name: noaa_tides_buoys.zip
+          asset_content_type: application/zip

@@ -47,3 +47,4 @@ htmlcov/
 
 # Test files
 test_apis.py
+validate_integration.py
