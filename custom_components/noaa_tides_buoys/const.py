@@ -5,7 +5,6 @@ DOMAIN = "noaa_tides_buoys"
 # Configuration
 CONF_DATA_SOURCE = "data_source"
 CONF_STATION_ID = "station_id"
-CONF_DATA_TYPE = "data_type"
 
 # Data sources
 DATA_SOURCE_TIDES = "tides_currents"
