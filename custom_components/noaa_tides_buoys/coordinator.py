@@ -11,9 +11,10 @@ from .const import (
     DOMAIN,
     CONF_DATA_SOURCE,
     CONF_STATION_ID,
-    CONF_DATA_TYPE,
     DATA_SOURCE_TIDES,
     UPDATE_INTERVAL,
+    TIDES_PRODUCTS,
+    BUOY_DATA_TYPES,
 )
 from .tides_api import TidesApiClient
 from .buoy_api import BuoyApiClient
@@ -32,7 +33,6 @@ class NOAADataUpdateCoordinator(DataUpdateCoordinator):
         """Initialize the coordinator."""
         self.data_source = config_entry_data[CONF_DATA_SOURCE]
         self.station_id = config_entry_data[CONF_STATION_ID]
-        self.data_type = config_entry_data[CONF_DATA_TYPE]
         
         session = async_get_clientsession(hass)
         
@@ -52,18 +52,34 @@ class NOAADataUpdateCoordinator(DataUpdateCoordinator):
         """Fetch data from API."""
         try:
             if self.data_source == DATA_SOURCE_TIDES:
-                data = await self.client.get_data(self.station_id, self.data_type)
+                # Fetch all available data types for tides
+                all_data = {}
+                for data_type in TIDES_PRODUCTS.keys():
+                    try:
+                        data = await self.client.get_data(self.station_id, data_type)
+                        all_data[data_type] = data
+                    except Exception as err:
+                        _LOGGER.debug(f"Could not fetch {data_type} for station {self.station_id}: {err}")
+                        # Continue fetching other data types even if one fails
+                        all_data[data_type] = None
+                return all_data
             else:
-                # For buoy data, map data type to file extension
+                # Fetch all available data types for buoys
+                all_data = {}
                 data_type_map = {
                     "standard": "txt",
                     "cwind": "cwind",
                     "spec": "spec",
                     "ocean": "ocean",
                 }
-                file_ext = data_type_map.get(self.data_type, "txt")
-                data = await self.client.get_data(self.station_id, file_ext)
-            
-            return data
+                for data_type, file_ext in data_type_map.items():
+                    try:
+                        data = await self.client.get_data(self.station_id, file_ext)
+                        all_data[data_type] = data
+                    except Exception as err:
+                        _LOGGER.debug(f"Could not fetch {data_type} for station {self.station_id}: {err}")
+                        # Continue fetching other data types even if one fails
+                        all_data[data_type] = None
+                return all_data
         except Exception as err:
             raise UpdateFailed(f"Error communicating with API: {err}") from err
