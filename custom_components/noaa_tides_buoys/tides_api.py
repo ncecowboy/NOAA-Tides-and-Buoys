@@ -124,6 +124,9 @@ class TidesApiClient:
                             return station["name"]
                     
                     return None
-        except (aiohttp.ClientError, asyncio.TimeoutError, Exception) as err:
+        except (aiohttp.ClientError, asyncio.TimeoutError) as err:
             _LOGGER.debug("Could not fetch station name for %s: %s", station_id, err)
+            return None
+        except Exception as err:
+            _LOGGER.warning("Unexpected error fetching station name for %s: %s", station_id, err)
             return None
