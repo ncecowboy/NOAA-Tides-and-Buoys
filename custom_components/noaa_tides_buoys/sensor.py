@@ -1,6 +1,7 @@
 """Sensor platform for NOAA Tides and Buoys integration."""
 from __future__ import annotations
 
+from datetime import datetime, timezone
 import logging
 from typing import Any
 
@@ -130,11 +131,11 @@ class NOAATidesSensor(CoordinatorEntity, SensorEntity):
             # Return the next tide event value
             if "predictions" in data and isinstance(data["predictions"], list) and data["predictions"]:
                 # Find the next tide (first future event)
-                from datetime import datetime
-                now = datetime.utcnow()
+                now = datetime.now(timezone.utc)
                 for tide in data["predictions"]:
                     if "t" in tide:
-                        tide_time = datetime.strptime(tide["t"], "%Y-%m-%d %H:%M")
+                        # Parse tide time and make it timezone-aware (UTC)
+                        tide_time = datetime.strptime(tide["t"], "%Y-%m-%d %H:%M").replace(tzinfo=timezone.utc)
                         if tide_time > now and "v" in tide:
                             return tide["v"]
             return None
@@ -176,8 +177,7 @@ class NOAATidesSensor(CoordinatorEntity, SensorEntity):
         
         # Special handling for high/low tide predictions
         if self._data_key == "predictions_hilo":
-            from datetime import datetime
-            now = datetime.utcnow()
+            now = datetime.now(timezone.utc)
             
             if "predictions" in data and isinstance(data["predictions"], list):
                 prior_highs = []
@@ -191,7 +191,8 @@ class NOAATidesSensor(CoordinatorEntity, SensorEntity):
                         continue
                     
                     try:
-                        tide_time = datetime.strptime(tide["t"], "%Y-%m-%d %H:%M")
+                        # Parse tide time and make it timezone-aware (UTC)
+                        tide_time = datetime.strptime(tide["t"], "%Y-%m-%d %H:%M").replace(tzinfo=timezone.utc)
                         tide_event = {
                             "time": tide["t"],
                             "height": tide["v"],
