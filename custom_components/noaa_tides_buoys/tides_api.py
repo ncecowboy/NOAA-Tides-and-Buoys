@@ -18,6 +18,10 @@ _LOGGER = logging.getLogger(__name__)
 
 class TidesApiClient:
     """API client for NOAA Tides and Currents."""
+    
+    # Products to try for validation, in order of preference.
+    # Predictions are more commonly available than real-time measurements.
+    _VALIDATION_PRODUCTS = ["predictions", "water_level"]
 
     def __init__(self, session: aiohttp.ClientSession):
         """Initialize the API client."""
@@ -78,10 +82,7 @@ class TidesApiClient:
         support all products. Predictions are tried first as they are more
         commonly available than real-time water level measurements.
         """
-        # List of products to try for validation, in order of preference
-        products_to_try = ["predictions", "water_level"]
-        
-        for product in products_to_try:
+        for product in self._VALIDATION_PRODUCTS:
             try:
                 await self.get_data(station_id, product)
                 return True
@@ -102,10 +103,7 @@ class TidesApiClient:
         When called after validate_station(), this results in a duplicate API call.
         Future optimization: Consider caching or combining validation with name retrieval.
         """
-        # List of products to try, in order of preference
-        products_to_try = ["predictions", "water_level"]
-        
-        for product in products_to_try:
+        for product in self._VALIDATION_PRODUCTS:
             try:
                 # Fetch data to get metadata which includes station name
                 data = await self.get_data(station_id, product)
