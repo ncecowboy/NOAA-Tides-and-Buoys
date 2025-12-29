@@ -1,7 +1,7 @@
 {
   "domain": "noaa_tides_buoys",
   "name": "NOAA Tides and Buoys",
-  "version": "1.1.1",
+  "version": "1.1.2",
   "documentation": "https://github.com/ncecowboy/NOAA-Tides-and-Buoys",
   "issue_tracker": "https://github.com/ncecowboy/NOAA-Tides-and-Buoys/issues",
   "codeowners": [
