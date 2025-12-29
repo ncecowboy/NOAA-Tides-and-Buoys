@@ -16,11 +16,8 @@ from .const import (
     DOMAIN,
     CONF_DATA_SOURCE,
     CONF_STATION_ID,
-    CONF_DATA_TYPE,
     DATA_SOURCE_TIDES,
     DATA_SOURCE_BUOY,
-    TIDES_PRODUCTS,
-    BUOY_DATA_TYPES,
 )
 from .tides_api import TidesApiClient
 from .buoy_api import BuoyApiClient
@@ -91,31 +88,10 @@ class NOAAConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         
         if user_input is not None:
             self._data.update(user_input)
-            return await self.async_step_data_type()
-
-        # Enter station ID
-        data_schema = vol.Schema(
-            {
-                vol.Required(CONF_STATION_ID): str,
-            }
-        )
-
-        return self.async_show_form(
-            step_id="station", data_schema=data_schema, errors=errors
-        )
-
-    async def async_step_data_type(
-        self, user_input: dict[str, Any] | None = None
-    ) -> FlowResult:
-        """Handle data type selection step."""
-        errors: dict[str, str] = {}
-        
-        if user_input is not None:
-            self._data.update(user_input)
             
             # Check if this station is already configured
             await self.async_set_unique_id(
-                f"{self._data[CONF_DATA_SOURCE]}_{self._data[CONF_STATION_ID]}_{self._data[CONF_DATA_TYPE]}"
+                f"{self._data[CONF_DATA_SOURCE]}_{self._data[CONF_STATION_ID]}"
             )
             self._abort_if_unique_id_configured()
             
@@ -129,18 +105,15 @@ class NOAAConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             else:
                 return self.async_create_entry(title=info["title"], data=self._data)
 
-        # Select appropriate data types based on data source
-        if self._data[CONF_DATA_SOURCE] == DATA_SOURCE_TIDES:
-            data_types = TIDES_PRODUCTS
-        else:
-            data_types = BUOY_DATA_TYPES
-
+        # Enter station ID
         data_schema = vol.Schema(
             {
-                vol.Required(CONF_DATA_TYPE): vol.In(data_types),
+                vol.Required(CONF_STATION_ID): str,
             }
         )
 
         return self.async_show_form(
-            step_id="data_type", data_schema=data_schema, errors=errors
+            step_id="station", data_schema=data_schema, errors=errors
         )
+
+

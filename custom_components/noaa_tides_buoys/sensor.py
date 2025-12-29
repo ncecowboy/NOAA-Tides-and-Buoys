@@ -18,7 +18,6 @@ from .const import (
     DOMAIN,
     CONF_DATA_SOURCE,
     CONF_STATION_ID,
-    CONF_DATA_TYPE,
     DATA_SOURCE_TIDES,
     TIDES_PRODUCTS,
     TIDES_UNITS,
@@ -53,17 +52,17 @@ def _create_tides_sensors(
 ) -> list[NOAATidesSensor]:
     """Create sensor entities for tides data."""
     sensors = []
-    data_type = entry.data[CONF_DATA_TYPE]
     
-    # Create primary sensor for the selected data type
-    sensors.append(
-        NOAATidesSensor(
-            coordinator,
-            entry,
-            data_type,
-            TIDES_PRODUCTS.get(data_type, data_type),
+    # Create a sensor for each available data type
+    for data_type, name in TIDES_PRODUCTS.items():
+        sensors.append(
+            NOAATidesSensor(
+                coordinator,
+                entry,
+                data_type,
+                name,
+            )
         )
-    )
     
     return sensors
 
@@ -74,17 +73,17 @@ def _create_buoy_sensors(
 ) -> list[NOAABuoySensor]:
     """Create sensor entities for buoy data."""
     sensors = []
-    data_type = entry.data[CONF_DATA_TYPE]
     
-    # Create sensors for various buoy measurements
-    sensors.append(
-        NOAABuoySensor(
-            coordinator,
-            entry,
-            data_type,
-            BUOY_DATA_TYPES.get(data_type, data_type),
+    # Create a sensor for each available data type
+    for data_type, name in BUOY_DATA_TYPES.items():
+        sensors.append(
+            NOAABuoySensor(
+                coordinator,
+                entry,
+                data_type,
+                name,
+            )
         )
-    )
     
     return sensors
 
@@ -121,7 +120,10 @@ class NOAATidesSensor(CoordinatorEntity, SensorEntity):
         if not self.coordinator.data:
             return None
         
-        data = self.coordinator.data
+        # Get data for this specific data type
+        data = self.coordinator.data.get(self._data_key)
+        if not data:
+            return None
         
         # Handle different data structures from the API
         if "data" in data and isinstance(data["data"], list) and data["data"]:
@@ -153,7 +155,10 @@ class NOAATidesSensor(CoordinatorEntity, SensorEntity):
             "data_type": self._data_key,
         }
         
-        data = self.coordinator.data
+        # Get data for this specific data type
+        data = self.coordinator.data.get(self._data_key)
+        if not data:
+            return attrs
         
         if "data" in data and isinstance(data["data"], list) and data["data"]:
             latest = data["data"][0]
@@ -213,7 +218,10 @@ class NOAABuoySensor(CoordinatorEntity, SensorEntity):
         if not self.coordinator.data:
             return None
         
-        data = self.coordinator.data
+        # Get data for this specific data type
+        data = self.coordinator.data.get(self._data_key)
+        if not data:
+            return None
         
         # For standard meteorological data, prioritize wave height, then wind speed
         if "WVHT" in data:
@@ -259,13 +267,18 @@ class NOAABuoySensor(CoordinatorEntity, SensorEntity):
             "data_type": self._data_key,
         }
         
+        # Get data for this specific data type
+        data = self.coordinator.data.get(self._data_key)
+        if not data:
+            return attrs
+        
         # Add all available data as attributes
-        for key, value in self.coordinator.data.items():
+        for key, value in data.items():
             if key != "_units" and not key.startswith("_"):
                 attrs[key.lower()] = value
         
         # Add units information
-        if "_units" in self.coordinator.data:
-            attrs["units"] = self.coordinator.data["_units"]
+        if "_units" in data:
+            attrs["units"] = data["_units"]
         
         return attrs
