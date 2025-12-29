@@ -35,26 +35,25 @@ async def validate_input(hass: HomeAssistant, data: dict[str, Any]) -> dict[str,
     data_source = data[CONF_DATA_SOURCE]
     station_id = data[CONF_STATION_ID]
     
+    # Create appropriate client based on data source
     if data_source == DATA_SOURCE_TIDES:
         client = TidesApiClient(session)
-        valid = await client.validate_station(station_id)
-        if not valid:
-            raise ValueError("Invalid station ID")
-        # Try to get station name
-        station_name = await client.get_station_name(station_id)
     else:
         client = BuoyApiClient(session)
-        valid = await client.validate_station(station_id)
-        if not valid:
-            raise ValueError("Invalid station ID")
-        # Try to get station name
-        station_name = await client.get_station_name(station_id)
+    
+    # Validate station exists
+    valid = await client.validate_station(station_id)
+    if not valid:
+        raise ValueError("Invalid station ID")
+    
+    # Try to get station name
+    station_name = await client.get_station_name(station_id)
     
     # Create title with station name if available, otherwise use station ID
-    source_name = data_source.replace('_', ' ').title()
     if station_name:
-        title = f"{station_name}"
+        title = station_name
     else:
+        source_name = data_source.replace('_', ' ').title()
         title = f"NOAA {source_name} - {station_id}"
     
     return {"title": title}
