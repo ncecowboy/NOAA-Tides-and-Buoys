@@ -10,6 +10,8 @@ jobs:
   validate:
     runs-on: ubuntu-latest
     name: Validate integration files
+    permissions:
+      contents: read
     
     steps:
       - name: Checkout code

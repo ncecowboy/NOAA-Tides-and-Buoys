@@ -8,6 +8,8 @@ jobs:
   release:
     runs-on: ubuntu-latest
     name: Create release package
+    permissions:
+      contents: write
     
     steps:
       - name: Checkout code
