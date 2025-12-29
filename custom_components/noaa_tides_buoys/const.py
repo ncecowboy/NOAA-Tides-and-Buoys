@@ -20,6 +20,16 @@ TIDES_PRODUCTS = {
     "wind": "Wind",
     "air_pressure": "Air Pressure",
     "currents": "Currents",
+    "conductivity": "Conductivity",
+    "salinity": "Salinity",
+    "humidity": "Humidity",
+    "visibility": "Visibility",
+    "air_gap": "Air Gap",
+    "one_minute_water_level": "One Minute Water Level",
+    "hourly_height": "Hourly Height",
+    "high_low": "High/Low Water Level",
+    "daily_mean": "Daily Mean Water Level",
+    "monthly_mean": "Monthly Mean Water Level",
 }
 
 # Buoy data types
@@ -40,6 +50,7 @@ BUOY_DATA_TYPE_MAP = {
 
 # API endpoints
 TIDES_API_BASE = "https://api.tidesandcurrents.noaa.gov/api/prod/datagetter"
+TIDES_METADATA_API_BASE = "https://api.tidesandcurrents.noaa.gov/mdapi/prod/webapi/stations"
 BUOY_API_BASE = "https://www.ndbc.noaa.gov/data/realtime2"
 
 # Update intervals (in seconds)
@@ -61,4 +72,14 @@ TIDES_UNITS = {
     "wind": "kts",
     "air_pressure": "mb",
     "currents": "kts",
+    "conductivity": "mS/cm",
+    "salinity": "PSU",
+    "humidity": "%",
+    "visibility": "nmi",
+    "air_gap": "ft",
+    "one_minute_water_level": "ft",
+    "hourly_height": "ft",
+    "high_low": "ft",
+    "daily_mean": "ft",
+    "monthly_mean": "ft",
 }

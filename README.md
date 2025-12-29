@@ -66,11 +66,22 @@ This custom integration for Home Assistant provides real-time data from NOAA (Na
 ### Tides and Currents
 - Water Level
 - Tide Predictions
+- High/Low Tide Predictions
 - Air Temperature
 - Water Temperature
 - Wind
 - Air Pressure
 - Currents
+- Conductivity
+- Salinity
+- Humidity
+- Visibility
+- Air Gap
+- One Minute Water Level
+- Hourly Height
+- High/Low Water Level
+- Daily Mean Water Level
+- Monthly Mean Water Level
 
 ### Buoy Data
 - Standard Meteorological Data (wave height, wind speed, etc.)
