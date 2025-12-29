@@ -49,3 +49,14 @@ DEFAULT_DATUM = "MLLW"
 DEFAULT_UNITS = "english"
 DEFAULT_TIME_ZONE = "gmt"
 DEFAULT_RANGE = 24  # hours
+
+# Units for Tides products (based on DEFAULT_UNITS = "english")
+TIDES_UNITS = {
+    "water_level": "ft",
+    "predictions": "ft",
+    "air_temperature": "°F",
+    "water_temperature": "°F",
+    "wind": "kts",
+    "air_pressure": "mb",
+    "currents": "kts",
+}

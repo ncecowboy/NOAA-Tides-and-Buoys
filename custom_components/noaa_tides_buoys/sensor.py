@@ -20,6 +20,7 @@ from .const import (
     CONF_STATION_ID,
     DATA_SOURCE_TIDES,
     TIDES_PRODUCTS,
+    TIDES_UNITS,
     BUOY_DATA_TYPES,
 )
 from .coordinator import NOAADataUpdateCoordinator
@@ -139,6 +140,11 @@ class NOAATidesSensor(CoordinatorEntity, SensorEntity):
         return None
 
     @property
+    def native_unit_of_measurement(self) -> str | None:
+        """Return the unit of measurement."""
+        return TIDES_UNITS.get(self._data_key)
+
+    @property
     def extra_state_attributes(self) -> dict[str, Any]:
         """Return additional attributes."""
         if not self.coordinator.data:
@@ -207,9 +213,8 @@ class NOAABuoySensor(CoordinatorEntity, SensorEntity):
             model=entry.data[CONF_DATA_SOURCE].replace("_", " ").title(),
         )
 
-    @property
-    def native_value(self) -> Any:
-        """Return the state of the sensor."""
+    def _get_primary_measurement_key(self) -> str | None:
+        """Get the key for the primary measurement based on available data."""
         if not self.coordinator.data:
             return None
         
@@ -218,11 +223,36 @@ class NOAABuoySensor(CoordinatorEntity, SensorEntity):
         if not data:
             return None
         
-        # For standard meteorological data, return wave height as primary value
+        # For standard meteorological data, prioritize wave height, then wind speed
         if "WVHT" in data:
-            return data["WVHT"]
+            return "WVHT"
         elif "WSPD" in data:
-            return data["WSPD"]
+            return "WSPD"
+        
+        return None
+
+    @property
+    def native_value(self) -> Any:
+        """Return the state of the sensor."""
+        if not self.coordinator.data:
+            return None
+        
+        key = self._get_primary_measurement_key()
+        if key:
+            return self.coordinator.data[key]
+        
+        return None
+
+    @property
+    def native_unit_of_measurement(self) -> str | None:
+        """Return the unit of measurement."""
+        if not self.coordinator.data:
+            return None
+        
+        key = self._get_primary_measurement_key()
+        if key and "_units" in self.coordinator.data:
+            units = self.coordinator.data["_units"]
+            return units.get(key)
         
         return None
 
