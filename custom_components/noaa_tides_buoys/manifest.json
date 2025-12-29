@@ -1,0 +1,12 @@
+{
+  "domain": "noaa_tides_buoys",
+  "name": "NOAA Tides and Buoys",
+  "version": "1.0.0",
+  "documentation": "https://github.com/ncecowboy/NOAA-Tides-and-Buoys",
+  "issue_tracker": "https://github.com/ncecowboy/NOAA-Tides-and-Buoys/issues",
+  "codeowners": ["@ncecowboy"],
+  "config_flow": true,
+  "requirements": [],
+  "iot_class": "cloud_polling",
+  "integration_type": "hub"
+}
