@@ -77,3 +77,14 @@ class BuoyApiClient:
             return True
         except Exception:
             return False
+
+    async def get_station_name(self, station_id: str) -> str | None:
+        """Get the name of the buoy station.
+        
+        Note: NDBC data files don't include station names in the data.
+        This would require parsing the station's HTML page or using a separate
+        metadata source. For now, we return None and fall back to station ID.
+        """
+        # Future enhancement: Could fetch from station_page.php and parse HTML
+        # or use NDBC's stations XML file
+        return None

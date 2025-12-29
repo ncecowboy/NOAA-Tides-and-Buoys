@@ -71,3 +71,18 @@ class TidesApiClient:
             return True
         except Exception:
             return False
+
+    async def get_station_name(self, station_id: str) -> str | None:
+        """Get the name of the station."""
+        try:
+            # Fetch data to get metadata which includes station name
+            data = await self.get_data(station_id, "water_level")
+            
+            # Extract station name from metadata
+            if "metadata" in data and "name" in data["metadata"]:
+                return data["metadata"]["name"]
+            
+            return None
+        except Exception:
+            _LOGGER.debug("Could not fetch station name for %s", station_id)
+            return None
