@@ -125,6 +125,20 @@ class NOAATidesSensor(CoordinatorEntity, SensorEntity):
         if not data:
             return None
         
+        # Special handling for high/low tide predictions
+        if self._data_key == "predictions_hilo":
+            # Return the next tide event value
+            if "predictions" in data and isinstance(data["predictions"], list) and data["predictions"]:
+                # Find the next tide (first future event)
+                from datetime import datetime
+                now = datetime.utcnow()
+                for tide in data["predictions"]:
+                    if "t" in tide:
+                        tide_time = datetime.strptime(tide["t"], "%Y-%m-%d %H:%M")
+                        if tide_time > now and "v" in tide:
+                            return tide["v"]
+            return None
+        
         # Handle different data structures from the API
         if "data" in data and isinstance(data["data"], list) and data["data"]:
             latest = data["data"][0]
@@ -160,6 +174,67 @@ class NOAATidesSensor(CoordinatorEntity, SensorEntity):
         if not data:
             return attrs
         
+        # Special handling for high/low tide predictions
+        if self._data_key == "predictions_hilo":
+            from datetime import datetime
+            now = datetime.utcnow()
+            
+            if "predictions" in data and isinstance(data["predictions"], list):
+                prior_highs = []
+                prior_lows = []
+                future_highs = []
+                future_lows = []
+                next_tide = None
+                
+                for tide in data["predictions"]:
+                    if "t" not in tide or "v" not in tide or "type" not in tide:
+                        continue
+                    
+                    try:
+                        tide_time = datetime.strptime(tide["t"], "%Y-%m-%d %H:%M")
+                        tide_event = {
+                            "time": tide["t"],
+                            "height": tide["v"],
+                            "type": tide["type"]
+                        }
+                        
+                        if tide_time < now:
+                            # Prior tide
+                            if tide["type"] == "H":
+                                prior_highs.append(tide_event)
+                            else:
+                                prior_lows.append(tide_event)
+                        else:
+                            # Future tide
+                            if next_tide is None:
+                                next_tide = tide_event
+                            
+                            if tide["type"] == "H":
+                                future_highs.append(tide_event)
+                            else:
+                                future_lows.append(tide_event)
+                    except ValueError:
+                        continue
+                
+                # Add attributes
+                if next_tide:
+                    attrs["next_tide_time"] = next_tide["time"]
+                    attrs["next_tide_height"] = next_tide["height"]
+                    attrs["next_tide_type"] = "High" if next_tide["type"] == "H" else "Low"
+                
+                # Keep most recent prior tides (last 3 of each)
+                if prior_highs:
+                    attrs["prior_high_tides"] = prior_highs[-3:]
+                if prior_lows:
+                    attrs["prior_low_tides"] = prior_lows[-3:]
+                
+                # Keep upcoming future tides (next 3 of each)
+                if future_highs:
+                    attrs["future_high_tides"] = future_highs[:3]
+                if future_lows:
+                    attrs["future_low_tides"] = future_lows[:3]
+        
+        # Regular data handling
         if "data" in data and isinstance(data["data"], list) and data["data"]:
             latest = data["data"][0]
             
@@ -174,6 +249,10 @@ class NOAATidesSensor(CoordinatorEntity, SensorEntity):
             # Add direction for wind/currents
             if "d" in latest:
                 attrs["direction"] = latest["d"]
+            
+            # Add gust data for wind
+            if self._data_key == "wind" and "g" in latest:
+                attrs["gust"] = latest["g"]
         
         # Add metadata if available
         if "metadata" in data:

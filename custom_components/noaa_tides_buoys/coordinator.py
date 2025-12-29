@@ -57,7 +57,17 @@ class NOAADataUpdateCoordinator(DataUpdateCoordinator):
                 # Fetch all available data types for tides in parallel
                 async def fetch_tide_data(data_type: str) -> tuple[str, Any]:
                     try:
-                        data = await self.client.get_data(self.station_id, data_type)
+                        # Special handling for high/low tide predictions
+                        if data_type == "predictions_hilo":
+                            # Use predictions product with hilo interval and extended range
+                            data = await self.client.get_data(
+                                self.station_id, 
+                                "predictions",
+                                interval="hilo",
+                                range_hours=72  # 3 days of high/low tides
+                            )
+                        else:
+                            data = await self.client.get_data(self.station_id, data_type)
                         return (data_type, data)
                     except Exception as err:
                         _LOGGER.debug("Could not fetch %s for station %s: %s", data_type, self.station_id, err)
