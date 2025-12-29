@@ -99,7 +99,7 @@ custom_components/noaa_tides_buoys/
 ### Version Management
 - Semantic versioning in manifest.json
 - GitHub releases trigger automatic ZIP packaging
-- Version automatically updated in release workflow
+- Version automatically updated and committed in release workflow
 - HACS detects and offers updates to users
 
 ## Installation for Users
@@ -127,10 +127,13 @@ python3 validate_integration.py
 ```
 
 ### Creating a Release
-1. Update version in `manifest.json`
-2. Create and push a tag: `git tag v1.0.0 && git push --tags`
-3. Create GitHub release
-4. Workflow automatically creates ZIP package
+1. Create and push a tag: `git tag v1.1.0 && git push --tags`
+2. Create GitHub release with the tag
+3. Workflow automatically:
+   - Updates version in `manifest.json`
+   - Commits the version change
+   - Creates ZIP package
+   - Uploads release asset
 
 ## Support
 - Issues: https://github.com/ncecowboy/NOAA-Tides-and-Buoys/issues
