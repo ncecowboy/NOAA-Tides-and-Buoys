@@ -29,6 +29,9 @@ from .coordinator import NOAADataUpdateCoordinator
 
 _LOGGER = logging.getLogger(__name__)
 
+# Priority data types to check for metadata (most common first)
+METADATA_PRIORITY_DATA_TYPES = ["water_level", "predictions", "predictions_hilo"]
+
 
 def _find_next_tide(predictions_data: dict[str, Any]) -> dict[str, Any] | None:
     """Find the next tide event from predictions data.
@@ -447,10 +450,7 @@ class NOAAStationMetadataSensor(CoordinatorEntity, SensorEntity):
             return None
         
         # Check common data types first for better performance
-        # Most stations will have water_level or predictions data
-        priority_data_types = ["water_level", "predictions", "predictions_hilo"]
-        
-        for data_type in priority_data_types:
+        for data_type in METADATA_PRIORITY_DATA_TYPES:
             if data_type in self.coordinator.data:
                 data_type_data = self.coordinator.data[data_type]
                 if data_type_data and "metadata" in data_type_data:
@@ -514,7 +514,7 @@ class NOAATidePredictionSensor(CoordinatorEntity, SensorEntity):
         if not next_tide:
             return None
         
-        # Return the appropriate field based on prediction key
+        # Map prediction keys to their corresponding values
         if self._prediction_key == "next_tide_time":
             return next_tide["time"]
         elif self._prediction_key == "next_tide_height":
@@ -527,8 +527,9 @@ class NOAATidePredictionSensor(CoordinatorEntity, SensorEntity):
     @property
     def native_unit_of_measurement(self) -> str | None:
         """Return the unit of measurement."""
+        # Only tide height has a unit
         if self._prediction_key == "next_tide_height":
-            return "ft"
+            return TIDES_UNITS.get("predictions_hilo", "ft")
         return None
 
     @property
