@@ -73,7 +73,8 @@ class TidesApiClient:
         if interval:
             params["interval"] = interval
         if range_hours and not (begin_date and end_date):
-            # Range is only used when not using begin/end dates
+            # Per NOAA API docs, range parameter cannot be used with begin_date/end_date
+            # Range specifies hours relative to a date, while begin/end define absolute range
             params["range"] = range_hours
 
         try:

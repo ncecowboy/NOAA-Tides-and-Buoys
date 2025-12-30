@@ -40,7 +40,7 @@ class BuoyApiClient:
         except aiohttp.ClientResponseError as err:
             # 404 errors are expected when a buoy doesn't have a particular data type
             if err.status == 404:
-                _LOGGER.debug("Data type %s not available for buoy %s", data_type, station_id, err)
+                _LOGGER.debug("Data type %s not available for buoy %s: %s", data_type, station_id, err)
                 raise  # Still raise so coordinator knows data is not available
             else:
                 _LOGGER.error("Error fetching data from Buoy API: %s", err)
