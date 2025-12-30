@@ -361,15 +361,6 @@ class NOAATidesSensor(CoordinatorEntity, SensorEntity):
             if self._data_key == "wind" and "g" in latest:
                 attrs["gust"] = latest["g"]
         
-        # Add metadata if available
-        if "metadata" in data:
-            metadata = data["metadata"]
-            if "name" in metadata:
-                attrs["station_name"] = metadata["name"]
-            if "lat" in metadata and "lon" in metadata:
-                attrs["latitude"] = metadata["lat"]
-                attrs["longitude"] = metadata["lon"]
-        
         return attrs
 
 
