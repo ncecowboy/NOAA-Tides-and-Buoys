@@ -1,5 +1,5 @@
 """Data coordinator for NOAA Tides and Buoys integration."""
-from datetime import timedelta
+from datetime import timedelta, datetime
 import logging
 from typing import Any
 import asyncio
@@ -54,20 +54,51 @@ class NOAADataUpdateCoordinator(DataUpdateCoordinator):
         """Fetch data from API."""
         try:
             if self.data_source == DATA_SOURCE_TIDES:
+                # Fetch station metadata first (for lat/lon, name, etc.)
+                station_metadata = await self.client.get_station_metadata(self.station_id)
+                
                 # Fetch all available data types for tides in parallel
                 async def fetch_tide_data(data_type: str) -> tuple[str, Any]:
                     try:
-                        # Special handling for high/low tide predictions
-                        if data_type == "predictions_hilo":
-                            # Use predictions product with hilo interval and extended range
-                            data = await self.client.get_data(
-                                self.station_id, 
-                                "predictions",
-                                interval="hilo",
-                                range_hours=72  # 3 days of high/low tides
-                            )
+                        # Special handling for predictions products that require date ranges
+                        if data_type in ("predictions", "predictions_hilo", "currents_predictions"):
+                            # Calculate date range for predictions
+                            # Get data from yesterday to 2 days from now (3 day total)
+                            now = datetime.now()
+                            begin = now - timedelta(hours=24)
+                            end = now + timedelta(hours=48)
+                            begin_date = begin.strftime("%Y%m%d %H:%M")
+                            end_date = end.strftime("%Y%m%d %H:%M")
+                            
+                            if data_type == "predictions_hilo":
+                                # Use predictions product with hilo interval for high/low tide predictions
+                                data = await self.client.get_data(
+                                    self.station_id,
+                                    "predictions",
+                                    begin_date=begin_date,
+                                    end_date=end_date,
+                                    interval="hilo",
+                                )
+                            else:
+                                # Regular predictions or current predictions
+                                data = await self.client.get_data(
+                                    self.station_id,
+                                    data_type,
+                                    begin_date=begin_date,
+                                    end_date=end_date,
+                                )
                         else:
-                            data = await self.client.get_data(self.station_id, data_type)
+                            # For real-time data products, use date="latest"
+                            data = await self.client.get_data(
+                                self.station_id,
+                                data_type,
+                                date="latest",
+                            )
+                        
+                        # Add station metadata to each data response
+                        if station_metadata:
+                            data["metadata"] = station_metadata
+                        
                         return (data_type, data)
                     except Exception as err:
                         _LOGGER.debug("Could not fetch %s for station %s: %s", data_type, self.station_id, err)
