@@ -303,11 +303,49 @@ class NOAABuoySensor(CoordinatorEntity, SensorEntity):
         if not data:
             return None
         
-        # For standard meteorological data, prioritize wave height, then wind speed
-        if "WVHT" in data:
-            return "WVHT"
-        elif "WSPD" in data:
-            return "WSPD"
+        # Define priority order for different data types
+        # For standard meteorological data, prioritize wave height, then wind speed, then air temp
+        if self._data_key == "standard":
+            for key in ["WVHT", "WSPD", "ATMP", "WTMP", "PRES"]:
+                if key in data and data[key] not in ["MM", "999", "999.0", "99.0", "9999", "9999.0"]:
+                    return key
+        # For continuous winds, prioritize wind speed
+        elif self._data_key == "cwind":
+            for key in ["WSPD", "WDIR", "GST"]:
+                if key in data and data[key] not in ["MM", "999", "999.0", "99.0"]:
+                    return key
+        # For spectral wave data, prioritize significant wave height
+        elif self._data_key == "spec":
+            for key in ["WVHT", "SwH", "SwP", "WWH"]:
+                if key in data and data[key] not in ["MM", "999", "999.0", "99.0"]:
+                    return key
+        # For ocean data, prioritize water temperature
+        elif self._data_key == "ocean":
+            for key in ["WTMP", "DEPTH", "OTMP", "SAL"]:
+                if key in data and data[key] not in ["MM", "999", "999.0", "99.0", "9999"]:
+                    return key
+        # For solar radiation
+        elif self._data_key == "srad":
+            for key in ["SRAD1", "SRAD2", "SRAD3"]:
+                if key in data and data[key] not in ["MM", "999", "999.0"]:
+                    return key
+        # For ADCP data
+        elif self._data_key == "adcp":
+            for key in ["DIR", "SPD", "DEPTH"]:
+                if key in data and data[key] not in ["MM", "999", "999.0"]:
+                    return key
+        # For supplemental data
+        elif self._data_key == "supl":
+            for key in ["PRES", "ATMP", "WTMP"]:
+                if key in data and data[key] not in ["MM", "999", "999.0", "99.0", "9999"]:
+                    return key
+        
+        # Fallback: return first non-timestamp, non-units key that has valid data
+        for key in data:
+            if (key not in ["YY", "MM", "DD", "hh", "mm", "_units", "#YY"] 
+                and not key.startswith("#")
+                and data[key] not in ["MM", "999", "999.0", "99.0", "9999", "9999.0"]):
+                return key
         
         return None
 
@@ -317,9 +355,14 @@ class NOAABuoySensor(CoordinatorEntity, SensorEntity):
         if not self.coordinator.data:
             return None
         
+        # Get data for this specific data type
+        data = self.coordinator.data.get(self._data_key)
+        if not data:
+            return None
+        
         key = self._get_primary_measurement_key()
         if key:
-            return self.coordinator.data[key]
+            return data.get(key)
         
         return None
 
@@ -329,9 +372,14 @@ class NOAABuoySensor(CoordinatorEntity, SensorEntity):
         if not self.coordinator.data:
             return None
         
+        # Get data for this specific data type
+        data = self.coordinator.data.get(self._data_key)
+        if not data:
+            return None
+        
         key = self._get_primary_measurement_key()
-        if key and "_units" in self.coordinator.data:
-            units = self.coordinator.data["_units"]
+        if key and "_units" in data:
+            units = data["_units"]
             return units.get(key)
         
         return None
