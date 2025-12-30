@@ -1,7 +1,7 @@
 """Sensor platform for NOAA Tides and Buoys integration."""
 from __future__ import annotations
 
-from datetime import datetime
+from datetime import datetime, timezone
 import logging
 from typing import Any
 
@@ -131,13 +131,13 @@ class NOAATidesSensor(CoordinatorEntity, SensorEntity):
             # Return the next tide event value
             if "predictions" in data and isinstance(data["predictions"], list) and data["predictions"]:
                 # Find the next tide (first future event)
-                # Use naive datetime since API returns local station time (lst_ldt)
-                now = datetime.now()
+                # API returns GMT times when time_zone=gmt
+                now = datetime.now(timezone.utc)
                 for tide in data["predictions"]:
                     if "t" in tide and "v" in tide:
                         try:
-                            # Parse tide time as naive datetime (local station time)
-                            tide_time = datetime.strptime(tide["t"], "%Y-%m-%d %H:%M")
+                            # Parse tide time as UTC (GMT from API)
+                            tide_time = datetime.strptime(tide["t"], "%Y-%m-%d %H:%M").replace(tzinfo=timezone.utc)
                             if tide_time > now:
                                 # Return as float to avoid "unknown" state
                                 return float(tide["v"])
@@ -149,13 +149,13 @@ class NOAATidesSensor(CoordinatorEntity, SensorEntity):
         if self._data_key == "currents_predictions":
             # Return the next current prediction value
             if "current_predictions" in data and isinstance(data["current_predictions"], list) and data["current_predictions"]:
-                # Use naive datetime since API returns local station time (lst_ldt)
-                now = datetime.now()
+                # API returns GMT times when time_zone=gmt
+                now = datetime.now(timezone.utc)
                 for current in data["current_predictions"]:
                     if "t" in current and "v" in current:
                         try:
-                            # Parse current time as naive datetime (local station time)
-                            current_time = datetime.strptime(current["t"], "%Y-%m-%d %H:%M")
+                            # Parse current time as UTC (GMT from API)
+                            current_time = datetime.strptime(current["t"], "%Y-%m-%d %H:%M").replace(tzinfo=timezone.utc)
                             if current_time > now:
                                 # Return as float to avoid "unknown" state
                                 return float(current["v"])
@@ -224,8 +224,8 @@ class NOAATidesSensor(CoordinatorEntity, SensorEntity):
         
         # Special handling for high/low tide predictions
         if self._data_key == "predictions_hilo":
-            # Use naive datetime since API returns local station time (lst_ldt)
-            now = datetime.now()
+            # API returns GMT times when time_zone=gmt
+            now = datetime.now(timezone.utc)
             
             if "predictions" in data and isinstance(data["predictions"], list):
                 prior_highs = []
@@ -239,8 +239,8 @@ class NOAATidesSensor(CoordinatorEntity, SensorEntity):
                         continue
                     
                     try:
-                        # Parse tide time as naive datetime (local station time)
-                        tide_time = datetime.strptime(tide["t"], "%Y-%m-%d %H:%M")
+                        # Parse tide time as UTC (GMT from API)
+                        tide_time = datetime.strptime(tide["t"], "%Y-%m-%d %H:%M").replace(tzinfo=timezone.utc)
                         tide_event = {
                             "time": tide["t"],
                             "height": float(tide["v"]),  # Ensure float for proper display
@@ -285,8 +285,8 @@ class NOAATidesSensor(CoordinatorEntity, SensorEntity):
         
         # Special handling for current predictions
         if self._data_key == "currents_predictions":
-            # Use naive datetime since API returns local station time (lst_ldt)
-            now = datetime.now()
+            # API returns GMT times when time_zone=gmt
+            now = datetime.now(timezone.utc)
             
             if "current_predictions" in data and isinstance(data["current_predictions"], list):
                 future_currents = []
@@ -297,8 +297,8 @@ class NOAATidesSensor(CoordinatorEntity, SensorEntity):
                         continue
                     
                     try:
-                        # Parse current time as naive datetime (local station time)
-                        current_time = datetime.strptime(current["t"], "%Y-%m-%d %H:%M")
+                        # Parse current time as UTC (GMT from API)
+                        current_time = datetime.strptime(current["t"], "%Y-%m-%d %H:%M").replace(tzinfo=timezone.utc)
                         current_event = {
                             "time": current["t"],
                             "speed": float(current["v"]),

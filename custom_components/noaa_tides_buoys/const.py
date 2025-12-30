@@ -61,7 +61,7 @@ UPDATE_INTERVAL = 3600  # 1 hour
 # Default settings
 DEFAULT_DATUM = "MLLW"
 DEFAULT_UNITS = "english"
-DEFAULT_TIME_ZONE = "lst_ldt"  # Local Standard/Daylight Time
+DEFAULT_TIME_ZONE = "gmt"
 DEFAULT_RANGE = 24  # hours
 
 # Units for Tides products (based on DEFAULT_UNITS = "english")
