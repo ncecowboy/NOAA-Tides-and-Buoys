@@ -51,7 +51,7 @@ async def async_setup_entry(
 def _create_tides_sensors(
     coordinator: NOAADataUpdateCoordinator,
     entry: ConfigEntry,
-) -> list[NOAATidesSensor]:
+) -> list[SensorEntity]:
     """Create sensor entities for tides data."""
     sensors = []
     
@@ -65,6 +65,20 @@ def _create_tides_sensors(
                 name,
             )
         )
+    
+    # Create station metadata entities
+    sensors.extend([
+        NOAAStationMetadataSensor(coordinator, entry, "name", "Station Name"),
+        NOAAStationMetadataSensor(coordinator, entry, "lat", "Latitude"),
+        NOAAStationMetadataSensor(coordinator, entry, "lon", "Longitude"),
+    ])
+    
+    # Create additional entities for tide predictions
+    sensors.extend([
+        NOAATidePredictionSensor(coordinator, entry, "next_tide_time", "Next Tide Time"),
+        NOAATidePredictionSensor(coordinator, entry, "next_tide_height", "Next Tide Height"),
+        NOAATidePredictionSensor(coordinator, entry, "next_tide_type", "Next Tide Type"),
+    ])
     
     return sensors
 
@@ -362,6 +376,135 @@ class NOAATidesSensor(CoordinatorEntity, SensorEntity):
                 attrs["gust"] = latest["g"]
         
         return attrs
+
+
+class NOAAStationMetadataSensor(CoordinatorEntity, SensorEntity):
+    """Representation of a NOAA Station metadata sensor."""
+
+    def __init__(
+        self,
+        coordinator: NOAADataUpdateCoordinator,
+        entry: ConfigEntry,
+        metadata_key: str,
+        name: str,
+    ) -> None:
+        """Initialize the sensor."""
+        super().__init__(coordinator)
+        self._metadata_key = metadata_key
+        self._attr_name = f"NOAA {entry.data[CONF_STATION_ID]} {name}"
+        self._attr_unique_id = f"{entry.entry_id}_metadata_{metadata_key}"
+        self._station_id = entry.data[CONF_STATION_ID]
+        
+        # Set device info - same device as other sensors
+        self._attr_device_info = DeviceInfo(
+            identifiers={(DOMAIN, f"{entry.data[CONF_DATA_SOURCE]}_{self._station_id}")},
+            name=f"NOAA Station {self._station_id}",
+            manufacturer="NOAA",
+            model=entry.data[CONF_DATA_SOURCE].replace("_", " ").title(),
+        )
+
+    @property
+    def native_value(self) -> Any:
+        """Return the state of the sensor."""
+        if not self.coordinator.data:
+            return None
+        
+        # Look for metadata in any of the data types
+        for data_type_data in self.coordinator.data.values():
+            if data_type_data and "metadata" in data_type_data:
+                metadata = data_type_data["metadata"]
+                if self._metadata_key in metadata:
+                    return metadata[self._metadata_key]
+        
+        return None
+
+    @property
+    def extra_state_attributes(self) -> dict[str, Any]:
+        """Return additional attributes."""
+        return {
+            "station_id": self._station_id,
+            "metadata_type": self._metadata_key,
+        }
+
+
+class NOAATidePredictionSensor(CoordinatorEntity, SensorEntity):
+    """Representation of a NOAA Tide prediction detail sensor."""
+
+    def __init__(
+        self,
+        coordinator: NOAADataUpdateCoordinator,
+        entry: ConfigEntry,
+        prediction_key: str,
+        name: str,
+    ) -> None:
+        """Initialize the sensor."""
+        super().__init__(coordinator)
+        self._prediction_key = prediction_key
+        self._attr_name = f"NOAA {entry.data[CONF_STATION_ID]} {name}"
+        self._attr_unique_id = f"{entry.entry_id}_prediction_{prediction_key}"
+        self._station_id = entry.data[CONF_STATION_ID]
+        
+        # Set device info - same device as other sensors
+        self._attr_device_info = DeviceInfo(
+            identifiers={(DOMAIN, f"{entry.data[CONF_DATA_SOURCE]}_{self._station_id}")},
+            name=f"NOAA Station {self._station_id}",
+            manufacturer="NOAA",
+            model=entry.data[CONF_DATA_SOURCE].replace("_", " ").title(),
+        )
+
+    @property
+    def native_value(self) -> Any:
+        """Return the state of the sensor."""
+        if not self.coordinator.data:
+            return None
+        
+        # Get data from predictions_hilo
+        data = self.coordinator.data.get("predictions_hilo")
+        if not data or "predictions" not in data:
+            return None
+        
+        # API returns GMT times when time_zone=gmt
+        now = datetime.now(timezone.utc)
+        
+        if isinstance(data["predictions"], list):
+            next_tide = None
+            
+            for tide in data["predictions"]:
+                if "t" not in tide or "v" not in tide or "type" not in tide:
+                    continue
+                
+                try:
+                    # Parse tide time as UTC (GMT from API)
+                    tide_time = datetime.strptime(tide["t"], "%Y-%m-%d %H:%M").replace(tzinfo=timezone.utc)
+                    
+                    if tide_time > now:
+                        # This is the next tide
+                        if self._prediction_key == "next_tide_time":
+                            return tide["t"]
+                        elif self._prediction_key == "next_tide_height":
+                            return float(tide["v"])
+                        elif self._prediction_key == "next_tide_type":
+                            return "High" if tide["type"] == "H" else "Low"
+                        break
+                except (ValueError, TypeError):
+                    continue
+        
+        return None
+
+    @property
+    def native_unit_of_measurement(self) -> str | None:
+        """Return the unit of measurement."""
+        if self._prediction_key == "next_tide_height":
+            return "ft"
+        return None
+
+    @property
+    def extra_state_attributes(self) -> dict[str, Any]:
+        """Return additional attributes."""
+        return {
+            "station_id": self._station_id,
+            "prediction_type": self._prediction_key,
+        }
 
 
 class NOAABuoySensor(CoordinatorEntity, SensorEntity):
