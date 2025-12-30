@@ -145,17 +145,59 @@ class NOAATidesSensor(CoordinatorEntity, SensorEntity):
                             continue
             return None
         
+        # Special handling for current predictions
+        if self._data_key == "currents_predictions":
+            # Return the next current prediction value
+            if "current_predictions" in data and isinstance(data["current_predictions"], list) and data["current_predictions"]:
+                # Use naive datetime since API returns local station time (lst_ldt)
+                now = datetime.now()
+                for current in data["current_predictions"]:
+                    if "t" in current and "v" in current:
+                        try:
+                            # Parse current time as naive datetime (local station time)
+                            current_time = datetime.strptime(current["t"], "%Y-%m-%d %H:%M")
+                            if current_time > now:
+                                # Return as float to avoid "unknown" state
+                                return float(current["v"])
+                        except (ValueError, TypeError):
+                            continue
+            return None
+        
+        # Special handling for datums (these are static reference values)
+        if self._data_key == "datums":
+            # Datums data has a different structure
+            if "datums" in data and isinstance(data["datums"], list) and data["datums"]:
+                # Return MLLW (Mean Lower Low Water) as the primary value if available
+                for datum in data["datums"]:
+                    if datum.get("n") == "MLLW" and "v" in datum:
+                        try:
+                            return float(datum["v"])
+                        except (ValueError, TypeError):
+                            continue
+            return None
+        
         # Handle different data structures from the API
         if "data" in data and isinstance(data["data"], list) and data["data"]:
             latest = data["data"][0]
             
             # Extract value based on data type
             if "v" in latest:  # value field
-                return latest["v"]
+                try:
+                    return float(latest["v"])
+                except (ValueError, TypeError):
+                    return None
             elif "s" in latest:  # speed field for currents/wind
-                return latest["s"]
+                try:
+                    return float(latest["s"])
+                except (ValueError, TypeError):
+                    return None
             elif "t" in latest:  # time field
-                return latest.get("v", latest.get("s"))
+                value = latest.get("v", latest.get("s"))
+                if value is not None:
+                    try:
+                        return float(value)
+                    except (ValueError, TypeError):
+                        return None
         
         return None
 
@@ -240,6 +282,58 @@ class NOAATidesSensor(CoordinatorEntity, SensorEntity):
                     attrs["future_high_tides"] = future_highs[:3]
                 if future_lows:
                     attrs["future_low_tides"] = future_lows[:3]
+        
+        # Special handling for current predictions
+        if self._data_key == "currents_predictions":
+            # Use naive datetime since API returns local station time (lst_ldt)
+            now = datetime.now()
+            
+            if "current_predictions" in data and isinstance(data["current_predictions"], list):
+                future_currents = []
+                next_current = None
+                
+                for current in data["current_predictions"]:
+                    if "t" not in current or "v" not in current:
+                        continue
+                    
+                    try:
+                        # Parse current time as naive datetime (local station time)
+                        current_time = datetime.strptime(current["t"], "%Y-%m-%d %H:%M")
+                        current_event = {
+                            "time": current["t"],
+                            "speed": float(current["v"]),
+                            "direction": current.get("d", "")
+                        }
+                        
+                        if current_time > now:
+                            if next_current is None:
+                                next_current = current_event
+                            future_currents.append(current_event)
+                    except (ValueError, TypeError):
+                        continue
+                
+                # Add attributes
+                if next_current:
+                    attrs["next_current_time"] = next_current["time"]
+                    attrs["next_current_speed"] = next_current["speed"]
+                    if next_current.get("direction"):
+                        attrs["next_current_direction"] = next_current["direction"]
+                
+                # Keep upcoming currents (next 6)
+                if future_currents:
+                    attrs["future_currents"] = future_currents[:6]
+        
+        # Special handling for datums (static reference data)
+        if self._data_key == "datums":
+            if "datums" in data and isinstance(data["datums"], list):
+                # Add all datums as separate attributes
+                for datum in data["datums"]:
+                    if "n" in datum and "v" in datum:
+                        try:
+                            datum_name = datum["n"].lower().replace(" ", "_")
+                            attrs[f"datum_{datum_name}"] = float(datum["v"])
+                        except (ValueError, TypeError):
+                            continue
         
         # Regular data handling
         if "data" in data and isinstance(data["data"], list) and data["data"]:

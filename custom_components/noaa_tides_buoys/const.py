@@ -20,6 +20,7 @@ TIDES_PRODUCTS = {
     "wind": "Wind",
     "air_pressure": "Air Pressure",
     "currents": "Currents",
+    "currents_predictions": "Current Predictions",
     "conductivity": "Conductivity",
     "salinity": "Salinity",
     "humidity": "Humidity",
@@ -30,6 +31,7 @@ TIDES_PRODUCTS = {
     "high_low": "High/Low Water Level",
     "daily_mean": "Daily Mean Water Level",
     "monthly_mean": "Monthly Mean Water Level",
+    "datums": "Tidal Datums",
 }
 
 # Buoy data types
@@ -72,6 +74,7 @@ TIDES_UNITS = {
     "wind": "kts",
     "air_pressure": "mb",
     "currents": "kts",
+    "currents_predictions": "kts",
     "conductivity": "mS/cm",
     "salinity": "PSU",
     "humidity": "%",
@@ -82,4 +85,5 @@ TIDES_UNITS = {
     "high_low": "ft",
     "daily_mean": "ft",
     "monthly_mean": "ft",
+    "datums": "ft",
 }
