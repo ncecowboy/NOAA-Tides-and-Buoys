@@ -416,12 +416,20 @@ class NOAABuoySensor(CoordinatorEntity, SensorEntity):
         if all(k in data for k in ["YY", "MM", "DD", "hh", "mm"]):
             try:
                 # Handle both 2-digit and 4-digit years
-                year = data["YY"]
-                if isinstance(year, str) and len(year) == 2:
+                year = str(data["YY"])
+                if len(year) == 2:
+                    # NOAA real-time data uses current century for 2-digit years
                     year = "20" + year
-                timestamp = f"{year}-{data['MM'].zfill(2) if isinstance(data['MM'], str) else str(int(data['MM'])).zfill(2)}-{data['DD'].zfill(2) if isinstance(data['DD'], str) else str(int(data['DD'])).zfill(2)} {data['hh'].zfill(2) if isinstance(data['hh'], str) else str(int(data['hh'])).zfill(2)}:{data['mm'].zfill(2) if isinstance(data['mm'], str) else str(int(data['mm'])).zfill(2)}"
+                
+                # Format each component with zero-padding
+                month = str(int(data["MM"])).zfill(2)
+                day = str(int(data["DD"])).zfill(2)
+                hour = str(int(data["hh"])).zfill(2)
+                minute = str(int(data["mm"])).zfill(2)
+                
+                timestamp = f"{year}-{month}-{day} {hour}:{minute}"
                 attrs["timestamp"] = timestamp
-            except (ValueError, KeyError, AttributeError):
+            except (ValueError, KeyError, AttributeError, TypeError):
                 pass
         
         # Add all available data as attributes
