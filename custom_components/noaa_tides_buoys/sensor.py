@@ -29,6 +29,47 @@ from .coordinator import NOAADataUpdateCoordinator
 
 _LOGGER = logging.getLogger(__name__)
 
+# Priority data types to check for metadata (most common first)
+METADATA_PRIORITY_DATA_TYPES = ["water_level", "predictions", "predictions_hilo"]
+
+
+def _find_next_tide(predictions_data: dict[str, Any]) -> dict[str, Any] | None:
+    """Find the next tide event from predictions data.
+    
+    Args:
+        predictions_data: The predictions_hilo data from coordinator
+        
+    Returns:
+        Dictionary with time, height, and type of next tide, or None if not found
+    """
+    if not predictions_data or "predictions" not in predictions_data:
+        return None
+    
+    if not isinstance(predictions_data["predictions"], list):
+        return None
+    
+    now = datetime.now(timezone.utc)
+    
+    for tide in predictions_data["predictions"]:
+        if "t" not in tide or "v" not in tide or "type" not in tide:
+            continue
+        
+        try:
+            # Parse tide time as UTC (GMT from API)
+            tide_time = datetime.strptime(tide["t"], "%Y-%m-%d %H:%M").replace(tzinfo=timezone.utc)
+            
+            if tide_time > now:
+                # This is the next tide
+                return {
+                    "time": tide["t"],
+                    "height": float(tide["v"]),
+                    "type": tide["type"]
+                }
+        except (ValueError, TypeError):
+            continue
+    
+    return None
+
 
 async def async_setup_entry(
     hass: HomeAssistant,
@@ -51,7 +92,7 @@ async def async_setup_entry(
 def _create_tides_sensors(
     coordinator: NOAADataUpdateCoordinator,
     entry: ConfigEntry,
-) -> list[NOAATidesSensor]:
+) -> list[SensorEntity]:
     """Create sensor entities for tides data."""
     sensors = []
     
@@ -65,6 +106,20 @@ def _create_tides_sensors(
                 name,
             )
         )
+    
+    # Create station metadata entities
+    sensors.extend([
+        NOAAStationMetadataSensor(coordinator, entry, "name", "Station Name"),
+        NOAAStationMetadataSensor(coordinator, entry, "lat", "Latitude"),
+        NOAAStationMetadataSensor(coordinator, entry, "lon", "Longitude"),
+    ])
+    
+    # Create additional entities for tide predictions
+    sensors.extend([
+        NOAATidePredictionSensor(coordinator, entry, "next_tide_time", "Next Tide Time"),
+        NOAATidePredictionSensor(coordinator, entry, "next_tide_height", "Next Tide Height"),
+        NOAATidePredictionSensor(coordinator, entry, "next_tide_type", "Next Tide Type"),
+    ])
     
     return sensors
 
@@ -229,12 +284,14 @@ class NOAATidesSensor(CoordinatorEntity, SensorEntity):
             # API returns GMT times when time_zone=gmt
             now = datetime.now(timezone.utc)
             
+            # Use helper to find next tide
+            next_tide = _find_next_tide(data)
+            
             if "predictions" in data and isinstance(data["predictions"], list):
                 prior_highs = []
                 prior_lows = []
                 future_highs = []
                 future_lows = []
-                next_tide = None
                 
                 for tide in data["predictions"]:
                     if "t" not in tide or "v" not in tide or "type" not in tide:
@@ -257,9 +314,6 @@ class NOAATidesSensor(CoordinatorEntity, SensorEntity):
                                 prior_lows.append(tide_event)
                         else:
                             # Future tide
-                            if next_tide is None:
-                                next_tide = tide_event
-                            
                             if tide["type"] == "H":
                                 future_highs.append(tide_event)
                             else:
@@ -267,7 +321,7 @@ class NOAATidesSensor(CoordinatorEntity, SensorEntity):
                     except (ValueError, TypeError):
                         continue
                 
-                # Add attributes
+                # Add attributes using the helper function result
                 if next_tide:
                     attrs["next_tide_time"] = next_tide["time"]
                     attrs["next_tide_height"] = next_tide["height"]
@@ -361,16 +415,130 @@ class NOAATidesSensor(CoordinatorEntity, SensorEntity):
             if self._data_key == "wind" and "g" in latest:
                 attrs["gust"] = latest["g"]
         
-        # Add metadata if available
-        if "metadata" in data:
-            metadata = data["metadata"]
-            if "name" in metadata:
-                attrs["station_name"] = metadata["name"]
-            if "lat" in metadata and "lon" in metadata:
-                attrs["latitude"] = metadata["lat"]
-                attrs["longitude"] = metadata["lon"]
-        
         return attrs
+
+
+class NOAAStationMetadataSensor(CoordinatorEntity, SensorEntity):
+    """Representation of a NOAA Station metadata sensor."""
+
+    def __init__(
+        self,
+        coordinator: NOAADataUpdateCoordinator,
+        entry: ConfigEntry,
+        metadata_key: str,
+        name: str,
+    ) -> None:
+        """Initialize the sensor."""
+        super().__init__(coordinator)
+        self._metadata_key = metadata_key
+        self._attr_name = f"NOAA {entry.data[CONF_STATION_ID]} {name}"
+        self._attr_unique_id = f"{entry.entry_id}_metadata_{metadata_key}"
+        self._station_id = entry.data[CONF_STATION_ID]
+        
+        # Set device info - same device as other sensors
+        self._attr_device_info = DeviceInfo(
+            identifiers={(DOMAIN, f"{entry.data[CONF_DATA_SOURCE]}_{self._station_id}")},
+            name=f"NOAA Station {self._station_id}",
+            manufacturer="NOAA",
+            model=entry.data[CONF_DATA_SOURCE].replace("_", " ").title(),
+        )
+
+    @property
+    def native_value(self) -> Any:
+        """Return the state of the sensor."""
+        if not self.coordinator.data:
+            return None
+        
+        # Check common data types first for better performance
+        for data_type in METADATA_PRIORITY_DATA_TYPES:
+            if data_type in self.coordinator.data:
+                data_type_data = self.coordinator.data[data_type]
+                if data_type_data and "metadata" in data_type_data:
+                    metadata = data_type_data["metadata"]
+                    if self._metadata_key in metadata:
+                        return metadata[self._metadata_key]
+        
+        # Fallback: check all data types if not found in priority types
+        for data_type_data in self.coordinator.data.values():
+            if data_type_data and "metadata" in data_type_data:
+                metadata = data_type_data["metadata"]
+                if self._metadata_key in metadata:
+                    return metadata[self._metadata_key]
+        
+        return None
+
+    @property
+    def extra_state_attributes(self) -> dict[str, Any]:
+        """Return additional attributes."""
+        return {
+            "station_id": self._station_id,
+            "metadata_type": self._metadata_key,
+        }
+
+
+class NOAATidePredictionSensor(CoordinatorEntity, SensorEntity):
+    """Representation of a NOAA Tide prediction detail sensor."""
+
+    def __init__(
+        self,
+        coordinator: NOAADataUpdateCoordinator,
+        entry: ConfigEntry,
+        prediction_key: str,
+        name: str,
+    ) -> None:
+        """Initialize the sensor."""
+        super().__init__(coordinator)
+        self._prediction_key = prediction_key
+        self._attr_name = f"NOAA {entry.data[CONF_STATION_ID]} {name}"
+        self._attr_unique_id = f"{entry.entry_id}_prediction_{prediction_key}"
+        self._station_id = entry.data[CONF_STATION_ID]
+        
+        # Set device info - same device as other sensors
+        self._attr_device_info = DeviceInfo(
+            identifiers={(DOMAIN, f"{entry.data[CONF_DATA_SOURCE]}_{self._station_id}")},
+            name=f"NOAA Station {self._station_id}",
+            manufacturer="NOAA",
+            model=entry.data[CONF_DATA_SOURCE].replace("_", " ").title(),
+        )
+
+    @property
+    def native_value(self) -> Any:
+        """Return the state of the sensor."""
+        if not self.coordinator.data:
+            return None
+        
+        # Get data from predictions_hilo
+        data = self.coordinator.data.get("predictions_hilo")
+        next_tide = _find_next_tide(data)
+        
+        if not next_tide:
+            return None
+        
+        # Map prediction keys to their corresponding values
+        if self._prediction_key == "next_tide_time":
+            return next_tide["time"]
+        elif self._prediction_key == "next_tide_height":
+            return next_tide["height"]
+        elif self._prediction_key == "next_tide_type":
+            return "High" if next_tide["type"] == "H" else "Low"
+        
+        return None
+
+    @property
+    def native_unit_of_measurement(self) -> str | None:
+        """Return the unit of measurement."""
+        # Only tide height has a unit
+        if self._prediction_key == "next_tide_height":
+            return TIDES_UNITS.get("predictions_hilo", "ft")
+        return None
+
+    @property
+    def extra_state_attributes(self) -> dict[str, Any]:
+        """Return additional attributes."""
+        return {
+            "station_id": self._station_id,
+            "prediction_type": self._prediction_key,
+        }
 
 
 class NOAABuoySensor(CoordinatorEntity, SensorEntity):
