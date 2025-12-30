@@ -82,6 +82,12 @@ This custom integration for Home Assistant provides real-time data from NOAA (Na
 **Predictions:**
 - Tide Predictions - Harmonic tide predictions
 - High/Low Tide Predictions - Predicted times and heights of high and low tides
+  - Includes attributes for next tide, future high/low tides, and recent tides
+- Current Predictions - Predicted current speeds and directions
+  - Includes attributes for next current and upcoming currents
+
+**Reference Data:**
+- Tidal Datums - Reference levels (MLLW, MHHW, MSL, etc.) for the station
 
 **Verified Historical Data:**
 - Hourly Height - Verified hourly water level data
