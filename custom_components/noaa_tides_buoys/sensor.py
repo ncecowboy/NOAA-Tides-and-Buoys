@@ -30,6 +30,44 @@ from .coordinator import NOAADataUpdateCoordinator
 _LOGGER = logging.getLogger(__name__)
 
 
+def _find_next_tide(predictions_data: dict[str, Any]) -> dict[str, Any] | None:
+    """Find the next tide event from predictions data.
+    
+    Args:
+        predictions_data: The predictions_hilo data from coordinator
+        
+    Returns:
+        Dictionary with time, height, and type of next tide, or None if not found
+    """
+    if not predictions_data or "predictions" not in predictions_data:
+        return None
+    
+    if not isinstance(predictions_data["predictions"], list):
+        return None
+    
+    now = datetime.now(timezone.utc)
+    
+    for tide in predictions_data["predictions"]:
+        if "t" not in tide or "v" not in tide or "type" not in tide:
+            continue
+        
+        try:
+            # Parse tide time as UTC (GMT from API)
+            tide_time = datetime.strptime(tide["t"], "%Y-%m-%d %H:%M").replace(tzinfo=timezone.utc)
+            
+            if tide_time > now:
+                # This is the next tide
+                return {
+                    "time": tide["t"],
+                    "height": float(tide["v"]),
+                    "type": tide["type"]
+                }
+        except (ValueError, TypeError):
+            continue
+    
+    return None
+
+
 async def async_setup_entry(
     hass: HomeAssistant,
     entry: ConfigEntry,
@@ -243,12 +281,14 @@ class NOAATidesSensor(CoordinatorEntity, SensorEntity):
             # API returns GMT times when time_zone=gmt
             now = datetime.now(timezone.utc)
             
+            # Use helper to find next tide
+            next_tide = _find_next_tide(data)
+            
             if "predictions" in data and isinstance(data["predictions"], list):
                 prior_highs = []
                 prior_lows = []
                 future_highs = []
                 future_lows = []
-                next_tide = None
                 
                 for tide in data["predictions"]:
                     if "t" not in tide or "v" not in tide or "type" not in tide:
@@ -271,9 +311,6 @@ class NOAATidesSensor(CoordinatorEntity, SensorEntity):
                                 prior_lows.append(tide_event)
                         else:
                             # Future tide
-                            if next_tide is None:
-                                next_tide = tide_event
-                            
                             if tide["type"] == "H":
                                 future_highs.append(tide_event)
                             else:
@@ -281,7 +318,7 @@ class NOAATidesSensor(CoordinatorEntity, SensorEntity):
                     except (ValueError, TypeError):
                         continue
                 
-                # Add attributes
+                # Add attributes using the helper function result
                 if next_tide:
                     attrs["next_tide_time"] = next_tide["time"]
                     attrs["next_tide_height"] = next_tide["height"]
@@ -409,7 +446,19 @@ class NOAAStationMetadataSensor(CoordinatorEntity, SensorEntity):
         if not self.coordinator.data:
             return None
         
-        # Look for metadata in any of the data types
+        # Check common data types first for better performance
+        # Most stations will have water_level or predictions data
+        priority_data_types = ["water_level", "predictions", "predictions_hilo"]
+        
+        for data_type in priority_data_types:
+            if data_type in self.coordinator.data:
+                data_type_data = self.coordinator.data[data_type]
+                if data_type_data and "metadata" in data_type_data:
+                    metadata = data_type_data["metadata"]
+                    if self._metadata_key in metadata:
+                        return metadata[self._metadata_key]
+        
+        # Fallback: check all data types if not found in priority types
         for data_type_data in self.coordinator.data.values():
             if data_type_data and "metadata" in data_type_data:
                 metadata = data_type_data["metadata"]
@@ -460,34 +509,18 @@ class NOAATidePredictionSensor(CoordinatorEntity, SensorEntity):
         
         # Get data from predictions_hilo
         data = self.coordinator.data.get("predictions_hilo")
-        if not data or "predictions" not in data:
+        next_tide = _find_next_tide(data)
+        
+        if not next_tide:
             return None
         
-        # API returns GMT times when time_zone=gmt
-        now = datetime.now(timezone.utc)
-        
-        if isinstance(data["predictions"], list):
-            next_tide = None
-            
-            for tide in data["predictions"]:
-                if "t" not in tide or "v" not in tide or "type" not in tide:
-                    continue
-                
-                try:
-                    # Parse tide time as UTC (GMT from API)
-                    tide_time = datetime.strptime(tide["t"], "%Y-%m-%d %H:%M").replace(tzinfo=timezone.utc)
-                    
-                    if tide_time > now:
-                        # This is the next tide
-                        if self._prediction_key == "next_tide_time":
-                            return tide["t"]
-                        elif self._prediction_key == "next_tide_height":
-                            return float(tide["v"])
-                        elif self._prediction_key == "next_tide_type":
-                            return "High" if tide["type"] == "H" else "Low"
-                        break
-                except (ValueError, TypeError):
-                    continue
+        # Return the appropriate field based on prediction key
+        if self._prediction_key == "next_tide_time":
+            return next_tide["time"]
+        elif self._prediction_key == "next_tide_height":
+            return next_tide["height"]
+        elif self._prediction_key == "next_tide_type":
+            return "High" if next_tide["type"] == "H" else "Low"
         
         return None
 
