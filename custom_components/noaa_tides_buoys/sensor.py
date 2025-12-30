@@ -1,7 +1,7 @@
 """Sensor platform for NOAA Tides and Buoys integration."""
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import datetime
 import logging
 from typing import Any
 
@@ -131,13 +131,18 @@ class NOAATidesSensor(CoordinatorEntity, SensorEntity):
             # Return the next tide event value
             if "predictions" in data and isinstance(data["predictions"], list) and data["predictions"]:
                 # Find the next tide (first future event)
-                now = datetime.now(timezone.utc)
+                # Use naive datetime since API returns local station time (lst_ldt)
+                now = datetime.now()
                 for tide in data["predictions"]:
-                    if "t" in tide:
-                        # Parse tide time and make it timezone-aware (UTC)
-                        tide_time = datetime.strptime(tide["t"], "%Y-%m-%d %H:%M").replace(tzinfo=timezone.utc)
-                        if tide_time > now and "v" in tide:
-                            return tide["v"]
+                    if "t" in tide and "v" in tide:
+                        try:
+                            # Parse tide time as naive datetime (local station time)
+                            tide_time = datetime.strptime(tide["t"], "%Y-%m-%d %H:%M")
+                            if tide_time > now:
+                                # Return as float to avoid "unknown" state
+                                return float(tide["v"])
+                        except (ValueError, TypeError):
+                            continue
             return None
         
         # Handle different data structures from the API
@@ -177,7 +182,8 @@ class NOAATidesSensor(CoordinatorEntity, SensorEntity):
         
         # Special handling for high/low tide predictions
         if self._data_key == "predictions_hilo":
-            now = datetime.now(timezone.utc)
+            # Use naive datetime since API returns local station time (lst_ldt)
+            now = datetime.now()
             
             if "predictions" in data and isinstance(data["predictions"], list):
                 prior_highs = []
@@ -191,11 +197,11 @@ class NOAATidesSensor(CoordinatorEntity, SensorEntity):
                         continue
                     
                     try:
-                        # Parse tide time and make it timezone-aware (UTC)
-                        tide_time = datetime.strptime(tide["t"], "%Y-%m-%d %H:%M").replace(tzinfo=timezone.utc)
+                        # Parse tide time as naive datetime (local station time)
+                        tide_time = datetime.strptime(tide["t"], "%Y-%m-%d %H:%M")
                         tide_event = {
                             "time": tide["t"],
-                            "height": tide["v"],
+                            "height": float(tide["v"]),  # Ensure float for proper display
                             "type": tide["type"]
                         }
                         
@@ -214,7 +220,7 @@ class NOAATidesSensor(CoordinatorEntity, SensorEntity):
                                 future_highs.append(tide_event)
                             else:
                                 future_lows.append(tide_event)
-                    except ValueError:
+                    except (ValueError, TypeError):
                         continue
                 
                 # Add attributes
