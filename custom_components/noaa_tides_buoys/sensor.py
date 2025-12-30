@@ -3,6 +3,7 @@ from __future__ import annotations
 
 from datetime import datetime, timezone
 import logging
+import re
 from typing import Any
 
 from homeassistant.components.sensor import (
@@ -168,6 +169,7 @@ class NOAATidesSensor(CoordinatorEntity, SensorEntity):
             # Datums data has a different structure
             if "datums" in data and isinstance(data["datums"], list) and data["datums"]:
                 # Return MLLW (Mean Lower Low Water) as the primary value if available
+                # MLLW is the standard datum used for tide predictions and charts
                 for datum in data["datums"]:
                     if datum.get("n") == "MLLW" and "v" in datum:
                         try:
@@ -302,7 +304,7 @@ class NOAATidesSensor(CoordinatorEntity, SensorEntity):
                         current_event = {
                             "time": current["t"],
                             "speed": float(current["v"]),
-                            "direction": current.get("d", "")
+                            "direction": current.get("d", "")  # Direction is compass bearing (e.g., "NE", "180")
                         }
                         
                         if current_time > now:
@@ -330,7 +332,11 @@ class NOAATidesSensor(CoordinatorEntity, SensorEntity):
                 for datum in data["datums"]:
                     if "n" in datum and "v" in datum:
                         try:
-                            datum_name = datum["n"].lower().replace(" ", "_")
+                            # Sanitize datum name for use as attribute key
+                            # Replace spaces and special characters with underscores
+                            datum_name = re.sub(r'[^a-zA-Z0-9]', '_', datum["n"].lower())
+                            # Remove consecutive underscores and leading/trailing underscores
+                            datum_name = re.sub(r'_+', '_', datum_name).strip('_')
                             attrs[f"datum_{datum_name}"] = float(datum["v"])
                         except (ValueError, TypeError):
                             continue
