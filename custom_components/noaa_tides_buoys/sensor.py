@@ -303,48 +303,60 @@ class NOAABuoySensor(CoordinatorEntity, SensorEntity):
         if not data:
             return None
         
+        # Helper function to check if a value is a missing data marker
+        def is_valid_value(value):
+            """Check if value is valid (not a missing data marker)."""
+            if value == "MM":
+                return False
+            # Check numeric missing data markers (as float or string)
+            try:
+                num_val = float(value)
+                return num_val not in [999.0, 99.0, 9999.0]
+            except (ValueError, TypeError):
+                return True  # If not numeric, assume valid
+        
         # Define priority order for different data types
         # For standard meteorological data, prioritize wave height, then wind speed, then air temp
         if self._data_key == "standard":
             for key in ["WVHT", "WSPD", "ATMP", "WTMP", "PRES"]:
-                if key in data and data[key] not in ["MM", "999", "999.0", "99.0", "9999", "9999.0"]:
+                if key in data and is_valid_value(data[key]):
                     return key
         # For continuous winds, prioritize wind speed
         elif self._data_key == "cwind":
             for key in ["WSPD", "WDIR", "GST"]:
-                if key in data and data[key] not in ["MM", "999", "999.0", "99.0"]:
+                if key in data and is_valid_value(data[key]):
                     return key
         # For spectral wave data, prioritize significant wave height
         elif self._data_key == "spec":
             for key in ["WVHT", "SwH", "SwP", "WWH"]:
-                if key in data and data[key] not in ["MM", "999", "999.0", "99.0"]:
+                if key in data and is_valid_value(data[key]):
                     return key
         # For ocean data, prioritize water temperature
         elif self._data_key == "ocean":
             for key in ["WTMP", "DEPTH", "OTMP", "SAL"]:
-                if key in data and data[key] not in ["MM", "999", "999.0", "99.0", "9999"]:
+                if key in data and is_valid_value(data[key]):
                     return key
         # For solar radiation
         elif self._data_key == "srad":
             for key in ["SRAD1", "SRAD2", "SRAD3"]:
-                if key in data and data[key] not in ["MM", "999", "999.0"]:
+                if key in data and is_valid_value(data[key]):
                     return key
         # For ADCP data
         elif self._data_key == "adcp":
             for key in ["DIR", "SPD", "DEPTH"]:
-                if key in data and data[key] not in ["MM", "999", "999.0"]:
+                if key in data and is_valid_value(data[key]):
                     return key
         # For supplemental data
         elif self._data_key == "supl":
             for key in ["PRES", "ATMP", "WTMP"]:
-                if key in data and data[key] not in ["MM", "999", "999.0", "99.0", "9999"]:
+                if key in data and is_valid_value(data[key]):
                     return key
         
         # Fallback: return first non-timestamp, non-units key that has valid data
         for key in data:
             if (key not in ["YY", "MM", "DD", "hh", "mm", "_units", "#YY"] 
                 and not key.startswith("#")
-                and data[key] not in ["MM", "999", "999.0", "99.0", "9999", "9999.0"]):
+                and is_valid_value(data[key])):
                 return key
         
         return None
@@ -399,6 +411,18 @@ class NOAABuoySensor(CoordinatorEntity, SensorEntity):
         data = self.coordinator.data.get(self._data_key)
         if not data:
             return attrs
+        
+        # Create a timestamp from the date/time fields if available
+        if all(k in data for k in ["YY", "MM", "DD", "hh", "mm"]):
+            try:
+                # Handle both 2-digit and 4-digit years
+                year = data["YY"]
+                if isinstance(year, str) and len(year) == 2:
+                    year = "20" + year
+                timestamp = f"{year}-{data['MM'].zfill(2) if isinstance(data['MM'], str) else str(int(data['MM'])).zfill(2)}-{data['DD'].zfill(2) if isinstance(data['DD'], str) else str(int(data['DD'])).zfill(2)} {data['hh'].zfill(2) if isinstance(data['hh'], str) else str(int(data['hh'])).zfill(2)}:{data['mm'].zfill(2) if isinstance(data['mm'], str) else str(int(data['mm'])).zfill(2)}"
+                attrs["timestamp"] = timestamp
+            except (ValueError, KeyError, AttributeError):
+                pass
         
         # Add all available data as attributes
         for key, value in data.items():
