@@ -40,6 +40,14 @@ BUOY_DATA_TYPES = {
     "cwind": "Continuous Winds",
     "spec": "Spectral Wave Summary",
     "ocean": "Oceanographic Data",
+    "srad": "Solar Radiation",
+    "swdir": "Spectral Wave Direction",
+    "swdir2": "Spectral Wave Direction (Second)",
+    "swr1": "Spectral Wave Energy (First)",
+    "swr2": "Spectral Wave Energy (Second)",
+    "adcp": "Acoustic Doppler Current Profiler",
+    "dart": "Deep-ocean Assessment and Reporting of Tsunamis",
+    "supl": "Supplemental Measurements",
 }
 
 # Buoy data type to file extension mapping
@@ -48,6 +56,14 @@ BUOY_DATA_TYPE_MAP = {
     "cwind": "cwind",
     "spec": "spec",
     "ocean": "ocean",
+    "srad": "srad",
+    "swdir": "swdir",
+    "swdir2": "swdir2",
+    "swr1": "swr1",
+    "swr2": "swr2",
+    "adcp": "adcp",
+    "dart": "dart",
+    "supl": "supl",
 }
 
 # API endpoints

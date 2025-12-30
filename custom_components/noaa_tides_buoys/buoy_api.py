@@ -63,7 +63,25 @@ class BuoyApiClient:
             data = {}
             for i, header in enumerate(headers):
                 if i < len(data_line):
-                    data[header] = data_line[i]
+                    value = data_line[i]
+                    # Try to convert to float for numeric fields, but keep as string if it fails
+                    # Skip timestamp fields (YY, MM, DD, hh, mm) and keep them as strings
+                    if header not in ["YY", "MM", "DD", "hh", "mm", "#YY"]:
+                        try:
+                            # Convert to float if possible
+                            numeric_value = float(value)
+                            # Check for NOAA missing data markers
+                            # MM = Missing data, 999/99/9999 are common missing value indicators
+                            if value != "MM":
+                                data[header] = numeric_value
+                            else:
+                                data[header] = value
+                        except (ValueError, TypeError):
+                            # Keep as string if conversion fails
+                            data[header] = value
+                    else:
+                        # Keep timestamp fields as strings
+                        data[header] = value
             
             # Add units information
             data['_units'] = {}
