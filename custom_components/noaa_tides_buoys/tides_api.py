@@ -17,6 +17,13 @@ from .const import (
 
 _LOGGER = logging.getLogger(__name__)
 
+# Products that measure absolute currents/direction and don't accept a tidal datum reference
+_PRODUCTS_WITHOUT_DATUM = frozenset({"currents", "currents_predictions", "datums"})
+# Products that don't accept a time_zone parameter
+_PRODUCTS_WITHOUT_TIMEZONE = frozenset({"datums", "monthly_mean"})
+# Products that don't accept a units parameter
+_PRODUCTS_WITHOUT_UNITS = frozenset({"datums"})
+
 
 class TidesApiClient:
     """API client for NOAA Tides and Currents."""
@@ -55,12 +62,16 @@ class TidesApiClient:
         params = {
             "station": station_id,
             "product": product,
-            "datum": datum,
-            "units": units,
-            "time_zone": time_zone,
             "format": "json",
             "application": "HomeAssistant",
         }
+
+        if product not in _PRODUCTS_WITHOUT_DATUM:
+            params["datum"] = datum
+        if product not in _PRODUCTS_WITHOUT_UNITS:
+            params["units"] = units
+        if product not in _PRODUCTS_WITHOUT_TIMEZONE:
+            params["time_zone"] = time_zone
         
         # Add date parameters - prefer begin/end dates over date parameter
         if begin_date and end_date:
@@ -96,9 +107,30 @@ class TidesApiClient:
             _LOGGER.error("Unexpected error fetching data: %s", err)
             raise
 
+    async def get_datums(self, station_id: str) -> dict[str, Any]:
+        """Get tidal datums for a station from the CO-OPS Metadata API.
+
+        Returns data in the same structure as the datagetter response so that
+        sensors can consume it transparently (a dict with a "datums" list of
+        {"n": name, "v": value} objects).
+        """
+        try:
+            async with async_timeout.timeout(10):
+                async with self._session.get(
+                    f"{TIDES_METADATA_API_BASE}/{station_id}/datums.json"
+                ) as response:
+                    response.raise_for_status()
+                    return await response.json()
+        except aiohttp.ClientError as err:
+            _LOGGER.error("Error fetching datums for station %s: %s", station_id, err)
+            raise
+        except Exception as err:
+            _LOGGER.error("Unexpected error fetching datums for station %s: %s", station_id, err)
+            raise
+
     async def validate_station(self, station_id: str) -> bool:
         """Validate that a station ID exists using the metadata API.
-        
+
         This is more reliable than checking data products since a station
         may be valid but not currently broadcasting all data products.
         """
