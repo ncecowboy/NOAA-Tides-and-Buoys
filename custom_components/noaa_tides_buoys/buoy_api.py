@@ -1,10 +1,10 @@
 """API client for NOAA NDBC Buoy data."""
+import asyncio
 import logging
 from typing import Any
 import re
 
 import aiohttp
-import async_timeout
 
 from .const import BUOY_API_BASE
 
@@ -29,7 +29,7 @@ class BuoyApiClient:
         url = f"{BUOY_API_BASE}/{station_id}.{data_type}"
         
         try:
-            async with async_timeout.timeout(10):
+            async with asyncio.timeout(10):
                 async with self._session.get(url) as response:
                     response.raise_for_status()
                     text = await response.text()
@@ -43,13 +43,13 @@ class BuoyApiClient:
                 _LOGGER.debug("Data type %s not available for buoy %s: %s", data_type, station_id, err)
                 raise  # Still raise so coordinator knows data is not available
             else:
-                _LOGGER.error("Error fetching data from Buoy API: %s", err)
+                _LOGGER.warning("Error fetching data from Buoy API: %s", err)
                 raise
         except aiohttp.ClientError as err:
-            _LOGGER.error("Error fetching data from Buoy API: %s", err)
+            _LOGGER.warning("Error fetching data from Buoy API: %s", err)
             raise
         except Exception as err:
-            _LOGGER.error("Unexpected error fetching data: %s", err)
+            _LOGGER.warning("Unexpected error fetching buoy data: %s", err)
             raise
 
     def _parse_buoy_data(self, text: str, data_type: str) -> dict[str, Any]:
@@ -118,7 +118,7 @@ class BuoyApiClient:
         url = f"https://www.ndbc.noaa.gov/station_page.php?station={station_id}"
         
         try:
-            async with async_timeout.timeout(10):
+            async with asyncio.timeout(10):
                 async with self._session.get(url) as response:
                     response.raise_for_status()
                     html = await response.text()
