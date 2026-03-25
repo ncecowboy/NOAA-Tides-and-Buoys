@@ -61,7 +61,23 @@ class NOAADataUpdateCoordinator(DataUpdateCoordinator):
                 async def fetch_tide_data(data_type: str) -> tuple[str, Any]:
                     try:
                         # Special handling for predictions products that require date ranges
-                        if data_type in ("predictions", "predictions_hilo", "currents_predictions"):
+                        if data_type == "datums":
+                            # Datums product returns static tidal reference data — no date needed
+                            data = await self.client.get_data(
+                                self.station_id,
+                                data_type,
+                            )
+                        elif data_type in ("daily_mean", "monthly_mean"):
+                            # These products require begin/end date range in YYYYMMDD format
+                            now = datetime.now()
+                            begin = now - timedelta(days=30)
+                            data = await self.client.get_data(
+                                self.station_id,
+                                data_type,
+                                begin_date=begin.strftime("%Y%m%d"),
+                                end_date=now.strftime("%Y%m%d"),
+                            )
+                        elif data_type in ("predictions", "predictions_hilo", "currents_predictions"):
                             # Calculate date range for predictions
                             # Get data from yesterday to 2 days from now (3 day total)
                             now = datetime.now()

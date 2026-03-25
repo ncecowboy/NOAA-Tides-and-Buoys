@@ -17,6 +17,13 @@ from .const import (
 
 _LOGGER = logging.getLogger(__name__)
 
+# Products that measure absolute currents/direction and don't accept a tidal datum reference
+_PRODUCTS_WITHOUT_DATUM = frozenset({"currents", "currents_predictions", "datums"})
+# Products that are date-independent or date-only and don't accept a time_zone parameter
+_PRODUCTS_WITHOUT_TIMEZONE = frozenset({"datums", "daily_mean", "monthly_mean"})
+# Products that don't accept a units parameter
+_PRODUCTS_WITHOUT_UNITS = frozenset({"datums"})
+
 
 class TidesApiClient:
     """API client for NOAA Tides and Currents."""
@@ -55,12 +62,16 @@ class TidesApiClient:
         params = {
             "station": station_id,
             "product": product,
-            "datum": datum,
-            "units": units,
-            "time_zone": time_zone,
             "format": "json",
             "application": "HomeAssistant",
         }
+
+        if product not in _PRODUCTS_WITHOUT_DATUM:
+            params["datum"] = datum
+        if product not in _PRODUCTS_WITHOUT_UNITS:
+            params["units"] = units
+        if product not in _PRODUCTS_WITHOUT_TIMEZONE:
+            params["time_zone"] = time_zone
         
         # Add date parameters - prefer begin/end dates over date parameter
         if begin_date and end_date:
