@@ -5,7 +5,6 @@ from datetime import datetime
 from typing import Any
 
 import aiohttp
-import async_timeout
 
 from .const import (
     TIDES_API_BASE,
@@ -17,10 +16,12 @@ from .const import (
 
 _LOGGER = logging.getLogger(__name__)
 
-# Products that measure absolute currents/direction and don't accept a tidal datum reference
-_PRODUCTS_WITHOUT_DATUM = frozenset({"currents", "currents_predictions", "datums"})
-# Products that don't accept a time_zone parameter
-_PRODUCTS_WITHOUT_TIMEZONE = frozenset({"datums", "monthly_mean"})
+# Products that measure absolute currents/direction and don't accept a tidal datum reference.
+# monthly_mean is also excluded because the NOAA API rejects the datum parameter for it.
+_PRODUCTS_WITHOUT_DATUM = frozenset({"currents", "currents_predictions", "datums", "monthly_mean"})
+# Products that don't accept a time_zone parameter.
+# daily_mean returns calendar-day averages so time_zone is irrelevant and rejected by the API.
+_PRODUCTS_WITHOUT_TIMEZONE = frozenset({"datums", "daily_mean", "monthly_mean"})
 # Products that don't accept a units parameter
 _PRODUCTS_WITHOUT_UNITS = frozenset({"datums"})
 
@@ -89,10 +90,26 @@ class TidesApiClient:
             params["range"] = range_hours
 
         try:
-            async with async_timeout.timeout(10):
+            async with asyncio.timeout(10):
                 async with self._session.get(
                     TIDES_API_BASE, params=params
                 ) as response:
+                    if response.status == 400:
+                        # 400 is returned by the NOAA API when a product is not available
+                        # at the requested station.  Log at debug to avoid flooding the log
+                        # with noise for stations that don't support every product type.
+                        _LOGGER.debug(
+                            "NOAA API returned 400 for station %s product %s – "
+                            "this product may not be available at this station",
+                            station_id,
+                            product,
+                        )
+                        raise aiohttp.ClientResponseError(
+                            response.request_info,
+                            response.history,
+                            status=response.status,
+                            message="Bad Request",
+                        )
                     response.raise_for_status()
                     data = await response.json()
                     
@@ -100,11 +117,10 @@ class TidesApiClient:
                         raise ValueError(f"API error: {data['error']}")
                     
                     return data
-        except aiohttp.ClientError as err:
-            _LOGGER.error("Error fetching data from Tides API: %s", err)
+        except (aiohttp.ClientError, asyncio.TimeoutError):
             raise
         except Exception as err:
-            _LOGGER.error("Unexpected error fetching data: %s", err)
+            _LOGGER.warning("Unexpected error fetching data from Tides API: %s", err)
             raise
 
     async def get_datums(self, station_id: str) -> dict[str, Any]:
@@ -115,17 +131,17 @@ class TidesApiClient:
         {"n": name, "v": value} objects).
         """
         try:
-            async with async_timeout.timeout(10):
+            async with asyncio.timeout(10):
                 async with self._session.get(
                     f"{TIDES_METADATA_API_BASE}/{station_id}/datums.json"
                 ) as response:
                     response.raise_for_status()
                     return await response.json()
         except aiohttp.ClientError as err:
-            _LOGGER.error("Error fetching datums for station %s: %s", station_id, err)
+            _LOGGER.debug("Error fetching datums for station %s: %s", station_id, err)
             raise
         except Exception as err:
-            _LOGGER.error("Unexpected error fetching datums for station %s: %s", station_id, err)
+            _LOGGER.warning("Unexpected error fetching datums for station %s: %s", station_id, err)
             raise
 
     async def validate_station(self, station_id: str) -> bool:
@@ -135,7 +151,7 @@ class TidesApiClient:
         may be valid but not currently broadcasting all data products.
         """
         try:
-            async with async_timeout.timeout(10):
+            async with asyncio.timeout(10):
                 async with self._session.get(
                     f"{TIDES_METADATA_API_BASE}/{station_id}.json"
                 ) as response:
@@ -165,7 +181,7 @@ class TidesApiClient:
         This is more reliable than querying data products.
         """
         try:
-            async with async_timeout.timeout(10):
+            async with asyncio.timeout(10):
                 async with self._session.get(
                     f"{TIDES_METADATA_API_BASE}/{station_id}.json"
                 ) as response:
@@ -192,7 +208,7 @@ class TidesApiClient:
         Returns dict with metadata or None if not available.
         """
         try:
-            async with async_timeout.timeout(10):
+            async with asyncio.timeout(10):
                 async with self._session.get(
                     f"{TIDES_METADATA_API_BASE}/{station_id}.json"
                 ) as response:
