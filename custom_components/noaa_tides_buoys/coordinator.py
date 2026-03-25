@@ -60,13 +60,10 @@ class NOAADataUpdateCoordinator(DataUpdateCoordinator):
                 # Fetch all available data types for tides in parallel
                 async def fetch_tide_data(data_type: str) -> tuple[str, Any]:
                     try:
-                        # Special handling for predictions products that require date ranges
+                        # Special handling for tide data products with product-specific date requirements
                         if data_type == "datums":
-                            # Datums product returns static tidal reference data — no date needed
-                            data = await self.client.get_data(
-                                self.station_id,
-                                data_type,
-                            )
+                            # Datums are retrieved from the CO-OPS Metadata API, not the datagetter
+                            data = await self.client.get_datums(self.station_id)
                         elif data_type in ("daily_mean", "monthly_mean"):
                             # These products require begin/end date range in YYYYMMDD format
                             now = datetime.now()
@@ -103,6 +100,17 @@ class NOAADataUpdateCoordinator(DataUpdateCoordinator):
                                     begin_date=begin_date,
                                     end_date=end_date,
                                 )
+                        elif data_type == "currents":
+                            # Currents product requires begin_date/end_date; does not support date=latest
+                            now = datetime.now()
+                            begin = now - timedelta(hours=24)
+                            end = now + timedelta(hours=48)
+                            data = await self.client.get_data(
+                                self.station_id,
+                                data_type,
+                                begin_date=begin.strftime("%Y%m%d %H:%M"),
+                                end_date=end.strftime("%Y%m%d %H:%M"),
+                            )
                         else:
                             # For real-time data products, use date="latest"
                             data = await self.client.get_data(
